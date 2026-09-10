@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Deno: Edge Function",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/supabase/functions/send-sms",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["run", "--allow-all", "--inspect-brk", "index.ts"],
+      "attachSimplePort": 9229
+    }
+  ]
+}
