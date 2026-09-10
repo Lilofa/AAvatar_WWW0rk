@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "supabase.vscode-supabase-extension",
+    "denoland.vscode-deno",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+    "eamodio.gitlens",
+    "usernamehw.errorlens",
+    "gruntfuggly.todo-tree",
+    "rangav.vscode-thunder-client"
+  ]
+}
