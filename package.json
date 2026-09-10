@@ -1,0 +1,20 @@
+{
+  "name": "avatar-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend for Avatar app on Supabase",
+  "scripts": {
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "reset": "supabase db reset",
+    "lint": "supabase db lint",
+    "test": "supabase test db",
+    "gen-types": "supabase gen types typescript --local > types/database.ts",
+    "deploy:functions": "supabase functions deploy",
+    "push:staging": "supabase db push --linked",
+    "diff": "supabase db diff"
+  },
+  "devDependencies": {
+    "supabase": "^1.200.0"
+  }
+}
