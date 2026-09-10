@@ -117,3 +117,35 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+.branches
+temp/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Deno
+deno.lock
