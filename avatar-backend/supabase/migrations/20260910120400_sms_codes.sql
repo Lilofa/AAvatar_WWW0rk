@@ -1,28 +1,4 @@
 -- =============================================
--- Временное хранилище SMS-кодов
--- =============================================
-CREATE TABLE public.sms_codes (
-  phone       text PRIMARY KEY,
-  code        text NOT NULL,
-  attempts    int  NOT NULL DEFAULT 0,
-  expires_at  timestamptz NOT NULL,
-  created_at  timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.sms_codes ENABLE ROW LEVEL SECURITY;
--- Политик нет → доступ только через service_role (Edge Functions).
-
--- Функция очистки старых кодов
-CREATE OR REPLACE FUNCTION public.cleanup_expired_sms_codes()
-RETURNS void
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  DELETE FROM public.sms_codes WHERE expires_at < now();
-$$;
-
--- =============================================
 -- RPC: принять заказ (защита от race condition)
 -- =============================================
 CREATE OR REPLACE FUNCTION public.accept_order(p_order_id uuid)
@@ -58,7 +34,7 @@ REVOKE EXECUTE ON FUNCTION public.accept_order(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.accept_order(uuid) TO authenticated;
 
 -- =============================================
--- RPC: сменить статус заказа (только для своих)
+-- RPC: сменить статус заказа
 -- =============================================
 CREATE OR REPLACE FUNCTION public.advance_order_status(
   p_order_id uuid,
@@ -77,17 +53,14 @@ BEGIN
     RAISE EXCEPTION 'Order not found';
   END IF;
 
-  -- Грузчик может двигать только свои заказы
   IF public.current_user_role() = 'porter' AND v_order.porter_id <> auth.uid() THEN
     RAISE EXCEPTION 'Not your order';
   END IF;
 
-  -- Заказчик может только отменить свой
   IF public.current_user_role() = 'client' AND v_order.client_id <> auth.uid() THEN
     RAISE EXCEPTION 'Not your order';
   END IF;
 
-  -- Разрешенные переходы
   IF NOT (
     (v_order.status = 'created'     AND p_new_status IN ('cancelled')) OR
     (v_order.status = 'accepted'    AND p_new_status IN ('in_progress', 'cancelled')) OR
@@ -103,3 +76,15 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.advance_order_status(uuid, public.order_status) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.advance_order_status(uuid, public.order_status) TO authenticated;
+
+-- =============================================
+-- Очистка старых SMS-кодов
+-- =============================================
+CREATE OR REPLACE FUNCTION public.cleanup_expired_sms_codes()
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  DELETE FROM public.sms_codes WHERE expires_at < now();
+$$;
