@@ -52,16 +52,20 @@ enum OrderStatus {
 
   String get wire => switch (this) {
         OrderStatus.new_ => 'new',
-        OrderStatus.approved => 'approved',
+        OrderStatus.approved => 'accepted', // 🔴 имя в БД Матвея — accepted
         OrderStatus.inProgress => 'in_progress',
         OrderStatus.completed => 'completed',
         OrderStatus.cancelled => 'cancelled',
       };
 
-  static OrderStatus fromWire(String raw) => OrderStatus.values.firstWhere(
-        (s) => s.wire == raw,
-        orElse: () => OrderStatus.new_,
-      );
+  static OrderStatus fromWire(String raw) {
+    final v = raw.trim();
+    if (v == 'accepted') return OrderStatus.approved; // 🔴 алиас: в БД Матвея accepted
+    return OrderStatus.values.firstWhere(
+      (s) => s.wire == v || s.name == v,
+      orElse: () => OrderStatus.new_,
+    );
+  }
 
   bool get isTerminal =>
       this == OrderStatus.completed || this == OrderStatus.cancelled;
@@ -222,9 +226,12 @@ abstract final class BizRules {
   /// Штраф за пропуск утреннего дедлайна.
   static const int morningLatePenalty = 5;
 
-  // ── Таймауты (в боте все были 5 минут, кроме овертайма) ────
-  /// Диспетчер одобряет/отклоняет ETA.
-  static const Duration etaApprovalTimeout = Duration(minutes: 5);
+  // ── Таймауты ───────────────────────────────────────────────
+  /// Диспетчер одобряет/отклоняет ETA. 🔴 Матвей 12.09: 15 минут (в боте было 5).
+  static const Duration etaApprovalTimeout = Duration(minutes: 15);
+
+  /// Срочный заказ: пропуск `departed` дольше этого срока → cancelled.
+  static const Duration urgentDepartedCancelGrace = Duration(minutes: 15);
 
   /// Диспетчер выбирает старшего, если бригада из разных чатов.
   static const Duration leadTimeout = Duration(minutes: 5);
@@ -290,4 +297,70 @@ abstract final class BizRules {
       timeStartLocal
           .add(Duration(minutes: plannedDurationMin))
           .add(overtimeGrace);
+}
+
+// ─────────────────────────────────────────────────────────────
+// ТРАНСПОРТ (решение Матвея 12.09: тариф зависит от типа транспорта)
+// ─────────────────────────────────────────────────────────────
+
+enum TransportType {
+  none,
+  gazelle,
+  truck;
+
+  String get wire => name;
+
+  static TransportType fromWire(String? raw) => switch (raw) {
+        'gazelle' => TransportType.gazelle,
+        'truck' => TransportType.truck,
+        _ => TransportType.none,
+      };
+
+  /// transport_fee из RPC quote_order.
+  int get feeRub => switch (this) {
+        TransportType.none => 0,
+        TransportType.gazelle => 1500,
+        TransportType.truck => 3000,
+      };
+}
+
+/// urgency_multiplier из RPC quote_order.
+/// ⚠️ OPEN QUESTION Матвею: replacement в его таблице нет; считаем как urgent (1.5),
+/// т.к. замена тоже immediate. Пометить в следующем пинге.
+double urgencyMultiplier(OrderUrgency u) => switch (u) {
+      OrderUrgency.urgent => 1.5,
+      OrderUrgency.replacement => 1.5,
+      OrderUrgency.current => 1.0,
+      OrderUrgency.preliminary => 0.9,
+      OrderUrgency.advance => 0.8,
+    };
+
+// ─────────────────────────────────────────────────────────────
+// REALTIME-СОБЫТИЯ (финальные каналы Матвея, блок 10)
+// ─────────────────────────────────────────────────────────────
+
+enum OrderEvent {
+  statusChanged('status_changed'),
+  stageAdded('stage_added'),
+  leadAssigned('lead_assigned'),
+  stageDeadlineMissed('stage_deadline_missed'),
+  orderCancelled('order_cancelled'),
+  feedbackTimeout('feedback_timeout'),
+  forceClosed('force_closed');
+
+  const OrderEvent(this.wire);
+  final String wire;
+
+  static OrderEvent? fromWire(String raw) =>
+      OrderEvent.values.firstWhere((e) => e.wire == raw, orElse: () => statusChanged);
+}
+
+enum FeedEvent {
+  orderCreated('order_created'),
+  orderTaken('order_taken'),
+  orderCancelled('order_cancelled'),
+  replacementNeeded('replacement_needed');
+
+  const FeedEvent(this.wire);
+  final String wire;
 }

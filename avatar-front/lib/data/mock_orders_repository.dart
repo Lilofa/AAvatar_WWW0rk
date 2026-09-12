@@ -24,6 +24,7 @@ import '../core/error/app_failure.dart';
 import '../features/order_flow/domain/enums.dart';
 import '../features/order_flow/domain/models.dart';
 import '../features/order_flow/domain/order_state_machine.dart';
+import '../features/order_flow/domain/pricing.dart';
 import 'orders_repository.dart';
 
 /// Какой режим сейчас форсирует debug-меню.
@@ -136,7 +137,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskDescription: 'Спустить 40 коробок и 2 стола, погрузить в Газель.',
       clientTariffHint: 'Стандарт',
       porterTariffHint: '350 ₽/час',
-      transport: 'Газель (грузчик не ведёт)',
+      transport: TransportType.gazelle,
       clientPhone: '+7 913 000-00-00',
       extraComments: 'Лифта нет. Домофон сломан, звонить в 3-ю квартиру.',
       coords: const GeoPoint(lat: 55.0415, lng: 82.9346),
@@ -349,8 +350,56 @@ class MockOrdersRepository implements OrdersRepository {
       return a.timeStart.compareTo(b.timeStart);
     });
 
-    return MockControls.mode == MockMode.empty ? const [] : list;
+    if (MockControls.mode == MockMode.empty) return const [];
+    return list.map(_withMyResponseStatus).toList();
   }
+
+  /// Матвей, блок 2: в каждом Order из фида приходит мой статус отклика.
+  Order _withMyResponseStatus(Order o) {
+    final r = _myResponses[o.id];
+    if (r == null) return o;
+    return Order(
+      id: o.id,
+      clientId: o.clientId,
+      address: o.address,
+      timeStart: o.timeStart,
+      plannedDurationMin: o.plannedDurationMin,
+      peopleCount: o.peopleCount,
+      status: o.status,
+      urgency: o.urgency,
+      taskTitle: o.taskTitle,
+      taskDescription: o.taskDescription,
+      entrance: o.entrance,
+      transport: o.transport,
+      clientPhone: o.clientPhone,
+      extraComments: o.extraComments,
+      clientTariffHint: o.clientTariffHint,
+      porterTariffHint: o.porterTariffHint,
+      resultComment: o.resultComment,
+      coords: o.coords,
+      createdAt: o.createdAt,
+      myResponseStatus: r.status,
+      feedbackMissed: o.feedbackMissed,
+      forceClosed: o.forceClosed,
+      isReplacement: o.isReplacement,
+    );
+  }
+
+  FeedEmptyReason _reasonFor(FeedFilter f) {
+    if (MockControls.mode == MockMode.empty) return FeedEmptyReason.noOrders;
+    final filterActive = (f.urgencies != null && f.urgencies!.isNotEmpty) ||
+        f.onlyMine ||
+        f.dateFrom != null ||
+        f.dateTo != null;
+    if (filterActive) return FeedEmptyReason.filteredOut;
+    final anyOpen = _orders.values.any((o) => o.status == OrderStatus.new_);
+    return anyOpen ? FeedEmptyReason.allTaken : FeedEmptyReason.noOrders;
+  }
+
+  FeedPage _page(FeedFilter f, int limit) => FeedPage(
+        items: _visibleFeed(f).take(limit).toList(),
+        emptyReason: _reasonFor(f),
+      );
 
   void _emitFeed() {
     if (!_feedCtrl.isClosed) _feedCtrl.add(_visibleFeed(FeedFilter.all));
@@ -445,12 +494,12 @@ class MockOrdersRepository implements OrdersRepository {
   // ───────────────────────────────────────────────────────────
 
   @override
-  Stream<List<Order>> watchFeed({FeedFilter filter = FeedFilter.all, int limit = 30, String? cursor}) async* {
+  Stream<FeedPage> watchFeed({FeedFilter filter = FeedFilter.all, int limit = 30, String? cursor}) async* {
     // Первый кадр — текущее состояние (иначе broadcast-событие уйдёт в никуда).
     await _streamGate();
-    yield _visibleFeed(filter).take(limit).toList();
+    yield _page(filter, limit);
     // Дальше — по изменениям (новый заказ, заказ занят, возврат в ленту).
-    yield* _feedCtrl.stream.map((_) => _visibleFeed(filter).take(limit).toList());
+    yield* _feedCtrl.stream.map((_) => _page(filter, limit));
   }
 
   @override
@@ -643,6 +692,13 @@ class MockOrdersRepository implements OrdersRepository {
         _ => FailureCode.forbidden,
       };
 
+  DateTime? _stageAt(String orderId, OrderStageType stage) {
+    for (final s in _orderStages[orderId] ?? const <OrderStage>[]) {
+      if (s.stage == stage) return s.at;
+    }
+    return null;
+  }
+
   DateTime? _finishedAt(String orderId) {
     final list = _orderStages[orderId] ?? const [];
     for (final s in list) {
@@ -750,7 +806,12 @@ class MockOrdersRepository implements OrdersRepository {
           throw Failures.feedbackWindowClosed();
         }
 
-        final minutes = now.difference(order.timeStart).inMinutes;
+        // 🔴 Матвей 12.09: minutesWorked = finished − started (НЕ от arrived и не от timeStart).
+      final startedAt = _stageAt(orderId, OrderStageType.started);
+      if (startedAt == null) {
+        throw Failures.wrongStageOrder();
+      }
+      final minutes = now.difference(startedAt).inMinutes;
         final hours = BizRules.hoursFromMinutes(minutes);
         final total = BizRules.totalHours(minutes, order.peopleCount);
         final takers = _orderTakers[orderId] ?? const [];
@@ -790,7 +851,7 @@ class MockOrdersRepository implements OrdersRepository {
           totalHours: total,
           ratingDelta: isLead ? BizRules.ratingOnCompleteLead : BizRules.ratingOnComplete,
           finishedAt: now,
-          moneyDelta: total * 350, // 🔴 тариф-заглушка! Формулу ждём от Матвея/бизнесмена.
+          moneyDelta: null, // 🔴 Матвей 12.09: денег в MVP нет, всегда null.
         );
       }, errorEveryN: 0);
 
@@ -946,47 +1007,23 @@ class MockOrdersRepository implements OrdersRepository {
     required int peopleCount,
     required int plannedDurationMin,
     required OrderUrgency urgency,
-    String? transport,
+    TransportType transport = TransportType.none,
   }) =>
       _guard(() async {
-        // 🔴 ЗАГЛУШКА. Реальную формулу тарифа должен отдать Матвей/бизнесмен.
-        // Здесь только форма ответа, чтобы калькулятор заказчика можно было верстать.
-        const baseRate = 400.0;
-        final hours = BizRules.hoursFromMinutes(plannedDurationMin);
-        final work = hours * peopleCount * baseRate;
-        final urgencyK = switch (urgency) {
-          OrderUrgency.urgent || OrderUrgency.replacement => 1.2,
-          OrderUrgency.advance => 1.1,
-          _ => 1.0,
-        };
-        final transportFee = transport == null || transport.isEmpty ? 0.0 : 1500.0;
-        final total = work * urgencyK + transportFee;
-
+        // Формула — коп RPC quote_order (Матвей, 12.09): см. domain/pricing.dart.
+        final t = computeTariff(
+          peopleCount: peopleCount,
+          plannedDurationMin: plannedDurationMin,
+          urgency: urgency,
+          transport: transport,
+        );
         return TariffQuote(
-          price: double.parse(total.toStringAsFixed(0)),
+          price: t.total,
           currency: 'RUB',
-          hours: hours * peopleCount,
-          breakdown: [
-            QuoteLine(label: 'Работа грузчиков (${hours.toStringAsFixed(1)} ч × $peopleCount)', amount: work),
-            if (urgencyK != 1.0)
-              QuoteLine(label: 'Коэффициент срочности ×$urgencyK', amount: work * (urgencyK - 1)),
-            if (transportFee > 0) QuoteLine(label: 'Транспорт', amount: transportFee),
-          ],
+          hours: (t.plannedHours * peopleCount).toDouble(),
+          breakdown: t.lines.map((l) => QuoteLine(label: l.$1, amount: l.$2)).toList(),
         );
       });
-
-  @override
-  Stream<List<Order>> watchMyClientOrders() async* {
-    await _streamGate();
-    List<Order> mine() {
-      final list = _orders.values.where((o) => o.clientId == _client).toList()
-        ..sort((a, b) => b.timeStart.compareTo(a.timeStart));
-      return MockControls.mode == MockMode.empty ? const <Order>[] : list;
-    }
-
-    yield mine();
-    yield* _feedCtrl.stream.map((_) => mine());
-  }
 
   @override
   Future<void> cancelOrder({required String orderId, String? reason}) => _guard(() async {
@@ -996,6 +1033,19 @@ class MockOrdersRepository implements OrdersRepository {
         _emitStatus(orderId);
         _emitFeed();
       });
+
+  @override
+  Stream<List<Order>> watchMyClientOrders() async* {
+    List<Order> mine() {
+      final list = _orders.values.where((o) => o.clientId == _client).toList()
+        ..sort((a, b) => b.timeStart.compareTo(a.timeStart));
+      return MockControls.mode == MockMode.empty ? const <Order>[] : list;
+    }
+
+    await _streamGate();
+    yield mine();
+    yield* _feedCtrl.stream.map((_) => mine());
+  }
 
   // ───────────────────────────────────────────────────────────
   // 9. ДИСПЕТЧЕР (для сквозного QA)

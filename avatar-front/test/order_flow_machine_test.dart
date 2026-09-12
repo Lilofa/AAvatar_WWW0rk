@@ -292,7 +292,7 @@ void main() {
 
     test('таймаут = 5 минут', () {
       expect(BizRules.feedbackTimeout, const Duration(minutes: 5));
-      expect(BizRules.etaApprovalTimeout, const Duration(minutes: 5));
+      expect(BizRules.etaApprovalTimeout, const Duration(minutes: 15)); // Матвей 12.09
       expect(BizRules.leadTimeout, const Duration(minutes: 5));
     });
   });
@@ -527,6 +527,12 @@ void main() {
       expect(OrderUrgency.fromWire('Предварительный'), OrderUrgency.preliminary);
       expect(OrderUrgency.fromWire('Предварительный Новый'), OrderUrgency.advance);
       expect(OrderUrgency.fromWire('Заранее'), OrderUrgency.advance);
+    });
+
+    test('🔴 wire-алиас: accepted из БД Матвея = approved', () {
+      expect(OrderStatus.fromWire('accepted'), OrderStatus.approved);
+      expect(OrderStatus.fromWire('approved'), OrderStatus.approved);
+      expect(OrderStatus.approved.wire, 'accepted');
     });
 
     test('🔴 грабля №7: статусы рефералов сравниваются БЕЗ ё', () {

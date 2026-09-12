@@ -29,6 +29,22 @@ class AuthResult {
           : UserRole.porter;
 }
 
+/// Почему лента пуста (Матвей, блок 2: meta.empty_reason) — разные тексты empty-состояния.
+enum FeedEmptyReason {
+  noOrders, // заказов нет вообще
+  filteredOut, // есть, но под мой фильтр ничего не подошло
+  allTaken, // были открытые, но все разобрали
+}
+
+/// Страница ленты: элементы + причина пустоты.
+class FeedPage {
+  const FeedPage({required this.items, required this.emptyReason});
+  final List<Order> items;
+  final FeedEmptyReason emptyReason;
+
+  bool get isEmpty => items.isEmpty;
+}
+
 /// Фильтр ленты.
 class FeedFilter {
   const FeedFilter({this.urgencies, this.dateFrom, this.dateTo, this.onlyMine = false});
@@ -53,7 +69,7 @@ abstract interface class OrdersRepository {
   Future<String?> getReferralCode({required String userId});
 
   // ── 2. ЛЕНТА И ОТКЛИК ─────────────────────────────────────
-  Stream<List<Order>> watchFeed({FeedFilter filter = FeedFilter.all, int limit = 30, String? cursor});
+  Stream<FeedPage> watchFeed({FeedFilter filter = FeedFilter.all, int limit = 30, String? cursor});
   Future<Order> getOrder({required String orderId});
   Future<OrderResponse> respondToOrder({required String orderId, required int etaMinutes});
   Future<void> cancelResponse({required String responseId});
@@ -104,7 +120,7 @@ abstract interface class OrdersRepository {
     required int peopleCount,
     required int plannedDurationMin,
     required OrderUrgency urgency,
-    String? transport,
+    TransportType transport = TransportType.none,
   });
 
   Stream<List<Order>> watchMyClientOrders();

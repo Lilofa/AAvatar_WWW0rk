@@ -44,9 +44,10 @@ class OrderFeedScreen extends StatefulWidget {
 }
 
 class _OrderFeedScreenState extends State<OrderFeedScreen> {
-  StreamSubscription<List<Order>>? _sub;
+  StreamSubscription<FeedPage>? _sub;
   FeedView _view = FeedView.loading;
   List<Order> _orders = const [];
+  FeedEmptyReason _emptyReason = FeedEmptyReason.noOrders;
   AppFailure? _failure;
 
   @override
@@ -70,11 +71,12 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
 
     // watchFeed отдаёт первый кадр сам; ошибки прихода ловим здесь.
     _sub = widget.repository.watchFeed().subscribeSafe(
-          onData: (orders) {
+          onData: (page) {
             if (!mounted) return;
             setState(() {
-              _orders = orders;
-              _view = orders.isEmpty ? FeedView.empty : FeedView.data;
+              _orders = page.items;
+              _emptyReason = page.emptyReason;
+              _view = page.isEmpty ? FeedView.empty : FeedView.data;
             });
           },
           onError: (Object e) {
@@ -109,8 +111,17 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
       body: switch (_view) {
         FeedView.loading => const TmpShimmerList(),
         FeedView.empty => TmpEmpty(
-            title: 'Заказов сейчас нет',
-            body: 'Новые заявки появятся здесь. Загляните позже.',
+            // Матвей, блок 2: три разные причины пустоты → три разных текста.
+            title: switch (_emptyReason) {
+              FeedEmptyReason.noOrders => 'Заказов сейчас нет',
+              FeedEmptyReason.filteredOut => 'Под фильтр ничего не подошло',
+              FeedEmptyReason.allTaken => 'Все заказы разобраны',
+            },
+            body: switch (_emptyReason) {
+              FeedEmptyReason.noOrders => 'Новые заявки появятся здесь. Загляните позже.',
+              FeedEmptyReason.filteredOut => 'Попробуйте сбросить фильтры или подождать новые заявки.',
+              FeedEmptyReason.allTaken => 'Открытые заявки закончились — обновите через минуту.',
+            },
             onRetry: _subscribe,
           ),
         FeedView.error => TmpError(
@@ -262,6 +273,27 @@ class TmpOrderCard extends StatelessWidget {
               if (order.porterTariffHint != null) ...[
                 const SizedBox(height: 6),
                 Text(order.porterTariffHint!, style: _meta),
+              ],
+              // Матвей, блок 2: кнопка/статус зависят от my_response_status.
+              if (order.myResponseStatus != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  switch (order.myResponseStatus!) {
+                    ResponseStatus.pending => '⏳ Отклик отправлен, ждём одобрения диспетчера',
+                    ResponseStatus.declined => '❌ Отклик отклонён — можно откликнуться снова',
+                    ResponseStatus.approved => '✅ Вы в бригаде, заказ в «Моих»',
+                    ResponseStatus.expired => '⌛ Отклик истёк — можно откликнуться снова',
+                  },
+                  style: _meta.copyWith(
+                    color: order.myResponseStatus == ResponseStatus.pending
+                        ? const Color(0xFFB26A00)
+                        : order.myResponseStatus == ResponseStatus.declined ||
+                                order.myResponseStatus == ResponseStatus.expired
+                            ? const Color(0xFFC62828)
+                            : const Color(0xFF2E7D32),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ],
           ),

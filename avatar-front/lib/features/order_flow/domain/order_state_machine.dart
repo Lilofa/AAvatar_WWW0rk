@@ -317,6 +317,18 @@ abstract final class OrderFlowMachine {
     return now.isBefore(created.add(dl));
   }
 
+  /// 🔴 Матвей 12.09: срочный заказ, у которого `departed` не нажат дольше
+  /// [BizRules.urgentDepartedCancelGrace] после начала работ, бэкенд отменяет
+  /// (событие order_cancelled, reason deadline).
+  /// ⚠️ OPEN QUESTION: для несрочных и для «departed до начала» дедлайнов у Матвея
+  /// правило не прописано — уточнить в следующем пинге. Здесь: immediate-заказы,
+  /// точка отсчёта — время начала работ.
+  static bool urgentDepartedMissCancels(Order order, DateTime now) {
+    if (!order.urgency.isImmediate) return false;
+    final deadline = order.timeStart.add(BizRules.urgentDepartedCancelGrace);
+    return now.isAfter(deadline);
+  }
+
   /// Рейтинг за завершение: +2 старшему, +1 остальным.
   static int ratingForCompletion({required bool isLead}) =>
       isLead ? BizRules.ratingOnCompleteLead : BizRules.ratingOnComplete;
