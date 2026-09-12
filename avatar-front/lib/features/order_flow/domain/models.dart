@@ -122,9 +122,11 @@ class Order {
 
   DateTime get overtimeAt => BizRules.overtimeAt(timeStart, plannedDurationMin);
 
-  DateTime? get wokeDeadline => BizRules.wokeDeadline(timeStart);
+  /// 🔴 SQL Матвея: дедлайны считаются для ВСЕХ заказов (time_start − 1 ч / − 30 мин);
+  /// утренность ограничивает только доступность этапа woke.
+  DateTime? get wokeDeadline => timeStart.subtract(BizRules.wokeLeadTime);
 
-  DateTime? get departedDeadline => BizRules.departedDeadline(timeStart);
+  DateTime? get departedDeadline => timeStart.subtract(BizRules.departedLeadTime);
 
   /// Можно ли ещё откликнуться.
   bool get isOpenForResponse => status == OrderStatus.new_;

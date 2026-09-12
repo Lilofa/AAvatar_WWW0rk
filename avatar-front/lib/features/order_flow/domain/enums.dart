@@ -51,7 +51,7 @@ enum OrderStatus {
   cancelled;
 
   String get wire => switch (this) {
-        OrderStatus.new_ => 'new',
+        OrderStatus.new_ => 'created', // 🔴 в БД Матвея статус называется created
         OrderStatus.approved => 'accepted', // 🔴 имя в БД Матвея — accepted
         OrderStatus.inProgress => 'in_progress',
         OrderStatus.completed => 'completed',
@@ -60,7 +60,9 @@ enum OrderStatus {
 
   static OrderStatus fromWire(String raw) {
     final v = raw.trim();
-    if (v == 'accepted') return OrderStatus.approved; // 🔴 алиас: в БД Матвея accepted
+    // Алиасы: имена из брифа/бота и фактические имена БД Матвея.
+    if (v == 'accepted') return OrderStatus.approved;
+    if (v == 'new') return OrderStatus.new_;
     return OrderStatus.values.firstWhere(
       (s) => s.wire == v || s.name == v,
       orElse: () => OrderStatus.new_,
@@ -94,6 +96,41 @@ enum OrderUrgency {
   /// «Предварительный Новый» / «Заранее» — fast, интервал 5 мин.
   advance;
 
+  /// 🔴 Wire-значения из БД Матвея (enum в quote_order): urgent/current/pre/ahead.
+  /// `replacement` в БД НЕ является срочностью: это флаг is_replacement,
+  /// а wire-срочность у замены — 'urgent' (мультипликатор 1.5).
+  String get wire => switch (this) {
+        OrderUrgency.urgent => 'urgent',
+        OrderUrgency.replacement => 'urgent',
+        OrderUrgency.current => 'current',
+        OrderUrgency.preliminary => 'pre',
+        OrderUrgency.advance => 'ahead',
+      };
+
+  static OrderUrgency fromWire(String raw, {bool isReplacement = false}) {
+    final n = raw.trim().toLowerCase();
+    switch (n) {
+      case 'urgent':
+        return isReplacement ? OrderUrgency.replacement : OrderUrgency.urgent;
+      case 'current':
+      case 'текущ':
+        return OrderUrgency.current;
+      case 'pre':
+      case 'предвар':
+        return OrderUrgency.preliminary;
+      case 'ahead':
+      case 'заранее':
+        return OrderUrgency.advance;
+    }
+    // Легаси-подпись из таблицы бота.
+    if (n.contains('замен')) return OrderUrgency.replacement;
+    if (n.startsWith('сроч')) return isReplacement ? OrderUrgency.replacement : OrderUrgency.urgent;
+    if (n.contains('заранее')) return OrderUrgency.advance;
+    if (n.contains('новый')) return OrderUrgency.advance;
+    if (n.startsWith('предвар')) return OrderUrgency.preliminary;
+    return OrderUrgency.current;
+  }
+
   /// immediate-режим: рассылка сразу во все чаты.
   bool get isImmediate => this == urgent || this == replacement;
 
@@ -118,17 +155,6 @@ enum OrderUrgency {
   /// Предварительные заказы не рассылаются до 18:00.
   bool get eveningOnly => this == preliminary;
 
-  static OrderUrgency fromWire(String raw) {
-    final n = raw.trim().toLowerCase();
-    // Без ё — по той же причине, что и в боте: нормализация ввода.
-    if (n.contains('замен')) return OrderUrgency.replacement;
-    if (n.startsWith('сроч')) return OrderUrgency.urgent;
-    if (n.contains('заранее')) return OrderUrgency.advance;
-    if (n.contains('новый')) return OrderUrgency.advance;
-    if (n.startsWith('предвар')) return OrderUrgency.preliminary;
-    if (n.startsWith('текущ')) return OrderUrgency.current;
-    return OrderUrgency.current;
-  }
 }
 
 // ─────────────────────────────────────────────────────────────
