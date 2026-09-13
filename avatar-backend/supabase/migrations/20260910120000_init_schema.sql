@@ -53,6 +53,8 @@ CREATE TABLE public.orders (
   cargo_type               public.cargo_type NOT NULL DEFAULT 'other',
   weight_kg                int,
   volume_m3                numeric(5,2),
+  people_count           int NOT NULL DEFAULT 1 CHECK (people_count >= 1),
+  planned_duration_min   int CHECK (planned_duration_min IS NULL OR planned_duration_min >= 30),
   photo_urls               text[] NOT NULL DEFAULT '{}',
   price                    numeric(10,2) NOT NULL CHECK (price >= 0),
   status                   public.order_status NOT NULL DEFAULT 'created',
@@ -78,6 +80,7 @@ CREATE INDEX idx_orders_client    ON public.orders(client_id, created_at DESC);
 CREATE INDEX idx_orders_porter    ON public.orders(porter_id, created_at DESC);
 CREATE INDEX idx_orders_feed      ON public.orders(status, created_at DESC) WHERE status = 'created';
 CREATE INDEX idx_orders_available ON public.orders(status, available_from, created_at DESC) WHERE status = 'created';
+CREATE INDEX idx_orders_people_count ON public.orders(people_count);
 
 -- =============================================
 -- order_responses
