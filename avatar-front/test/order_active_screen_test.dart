@@ -36,7 +36,7 @@ void main() {
   testWidgets('таймлайн и кнопка следующего этапа приходят из availability', (tester) async {
     final repo = MockOrdersRepository(clock: mockBase);
     await tester.pumpWidget(MaterialApp(
-      home: OrderActiveScreen(orderId: 'ord-2001', repository: repo),
+      home: OrderActiveScreen(orderId: 'ord-2001', repository: repo, nowProvider: mockBase),
     ));
     await settle(tester);
 
@@ -54,7 +54,7 @@ void main() {
   testWidgets('старший из бригады, не «назначается…»', (tester) async {
     final repo = MockOrdersRepository(clock: mockBase);
     await tester.pumpWidget(MaterialApp(
-      home: OrderActiveScreen(orderId: 'ord-2001', repository: repo),
+      home: OrderActiveScreen(orderId: 'ord-2001', repository: repo, nowProvider: mockBase),
     ));
     await settle(tester);
 
@@ -97,7 +97,7 @@ void main() {
     await repo.setStage(orderId: 'ord-2001', stage: OrderStageType.finished);
 
     await tester.pumpWidget(MaterialApp(
-      home: OrderActiveScreen(orderId: 'ord-2001', repository: repo),
+      home: OrderActiveScreen(orderId: 'ord-2001', repository: repo, nowProvider: mockBase),
     ));
     await settle(tester);
 
@@ -122,7 +122,7 @@ void main() {
     await repo.setStage(orderId: 'ord-2001', stage: OrderStageType.finished);
 
     await tester.pumpWidget(MaterialApp(
-      home: OrderActiveScreen(orderId: 'ord-2001', repository: repo),
+      home: OrderActiveScreen(orderId: 'ord-2001', repository: repo, nowProvider: mockBase),
     ));
     await settle(tester);
 
