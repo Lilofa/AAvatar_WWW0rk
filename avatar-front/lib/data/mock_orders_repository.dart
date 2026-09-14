@@ -218,6 +218,30 @@ class MockOrdersRepository implements OrdersRepository {
       createdAt: base.subtract(const Duration(hours: 8)),
     ));
 
+    // 5b. Утренний одобренный заказ, где я в бригаде: предупреждения о дедлайне.
+    final morningApproved = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 7, 0);
+    _addOrder(Order(
+      id: 'ord-1006',
+      clientId: _client,
+      address: 'г. Новосибирск, ул. Тайгинская, 8',
+      timeStart: morningApproved,
+      plannedDurationMin: 120,
+      peopleCount: 2,
+      status: OrderStatus.approved,
+      urgency: OrderUrgency.advance,
+      taskTitle: 'Утренняя погрузка (тест предупреждений)',
+      taskDescription: 'Проверка предупреждения о дедлайне «Проснулся».',
+      createdAt: base.subtract(const Duration(hours: 2)),
+    ));
+    _orderTakers['ord-1006'] = [
+      const OrderTaker(
+        orderId: 'ord-1006',
+        porter: PorterBrief(id: _me, name: 'Артём', rating: 212, completedCount: 131, isLead: true),
+        isLead: true,
+        etaMinutes: 20,
+      ),
+    ];
+
     // 6. Мой активный заказ — на нём тестируем этапы, старшего и овертайм.
     final activeStart = base.subtract(const Duration(minutes: 25));
     _addOrder(Order(

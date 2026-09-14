@@ -42,6 +42,7 @@ enum FailureCode {
 
   // валидация ввода
   validation,
+  rateLimited,
 
   // создание заявки
   addressNotFound,
@@ -157,8 +158,39 @@ abstract final class Failures {
         details: {'field': field},
       );
 
+  static AppFailure orderNotFound() => const AppFailure(
+        code: FailureCode.orderNotFound,
+        message: 'Заказ не найден. Возможно, он отменён.',
+      );
+
+  static AppFailure notInBrigade() => const AppFailure(
+        code: FailureCode.forbidden,
+        message: 'Вы не в бригаде этого заказа.',
+      );
+
+  static AppFailure stageAlreadySet() => const AppFailure(
+        code: FailureCode.stageAlreadySet,
+        message: 'Этап уже отмечен.',
+      );
+
   static AppFailure unauthorized() => const AppFailure(
         code: FailureCode.unauthorized,
         message: 'Сессия истекла. Войдите заново.',
       );
 }
+
+/// Свободный конструктор ошибки с готовым текстом (для кодов БД Матвея).
+AppFailure failure(
+  FailureCode code,
+  String message, {
+  bool retryable = false,
+  Map<String, Object?>? details,
+  Object? cause,
+}) =>
+    AppFailure(
+      code: code,
+      message: message,
+      retryable: retryable,
+      details: details,
+      cause: cause,
+    );
