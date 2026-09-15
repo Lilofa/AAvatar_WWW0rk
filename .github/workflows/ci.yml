@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: avatar-backend/supabase
     steps:
       - uses: actions/checkout@v4
 
@@ -17,7 +20,7 @@ jobs:
           version: latest
 
       - name: Start Supabase
-        run: supabase start
+        run: supabase start -x realtime,storage-api,imgproxy,mailpit,edge-runtime,logflare,vector,pgbouncer
 
       - name: Lint migrations
         run: supabase db lint
