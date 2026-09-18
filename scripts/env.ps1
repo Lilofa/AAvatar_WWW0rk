@@ -1,4 +1,4 @@
-# scripts/env.ps1
+﻿# scripts/env.ps1
 $url  = "https://djbtzyezhfnxberzliwc.supabase.co"
 $anon = "sb_publishable_Z2OADxGNhEqXfNCwhiIxpg_C1p4KtCR"
 
