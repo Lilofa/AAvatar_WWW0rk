@@ -10,9 +10,7 @@ serve(async (req) => {
 
   try {
     const { query } = await req.json();
-    if (!query || query.length < 3) {
-      return json({ ok: true, results: [] });
-    }
+    if (!query || query.length < 3) return json({ ok: true, results: [] });
 
     const url = new URL("https://nominatim.openstreetmap.org/search");
     url.searchParams.set("q", query);
@@ -22,18 +20,19 @@ serve(async (req) => {
     url.searchParams.set("countrycodes", "ru");
 
     const res = await fetch(url.toString(), {
-      headers: { "User-Agent": "AvatarApp/1.0 (contact@example.com)" },
+      headers: { "User-Agent": "AvatarApp/1.0 (contact@avatar.app)" },
     });
     const data = await res.json();
 
-    const results = data.map((item: any) => ({
-      display_name: item.display_name,
-      lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon),
-      type: item.type,
-    }));
-
-    return json({ ok: true, results });
+    return json({
+      ok: true,
+      results: data.map((item: any) => ({
+        display_name: item.display_name,
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+        type: item.type,
+      })),
+    });
   } catch (e) {
     return json({ ok: false, error: (e as Error).message }, 500);
   }
