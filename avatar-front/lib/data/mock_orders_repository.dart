@@ -16,6 +16,7 @@ library;
 
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
 // AppFailure/Failures приходят и через export orders_repository.dart,
 // но импорт держим явным: если export уберут при переносе в скелет Коли,
@@ -1245,6 +1246,15 @@ class MockOrdersRepository implements OrdersRepository {
         forceClosed: o.forceClosed,
         isReplacement: o.isReplacement,
       );
+
+  @override
+  Future<String> uploadOrderPhoto({
+    required String orderId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    return 'mock://orders/$orderId/$fileName';
+  }
 
   Future<void> dispose() async {
     await _feedCtrl.close();

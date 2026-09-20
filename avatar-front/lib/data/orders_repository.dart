@@ -12,6 +12,8 @@
 /// Документ с вопросами по каждому блоку: `avatar/artem/CONTRACT_methods.md`.
 library;
 
+import 'dart:typed_data';
+
 import '../features/order_flow/domain/enums.dart';
 import '../features/order_flow/domain/models.dart';
 
@@ -134,6 +136,14 @@ abstract interface class OrdersRepository {
   Future<void> forceCloseOrder({required String orderId, required String comment});
   Future<void> findReplacement({required String orderId});
   Stream<List<PorterLocation>> watchPorterLocations({required String orderId});
+
+  // ── 10. ФОТО ЗАКАЗА (storage bucket 'orders', миграция 18.09) ──
+  /// Загрузить фото к заказу; возвращает публичный URL для вставки в отзыв/чат.
+  Future<String> uploadOrderPhoto({
+    required String orderId,
+    required Uint8List bytes,
+    required String fileName,
+  });
 }
 
 /// Минимальный профиль текущего пользователя (core-слой, не мой).
