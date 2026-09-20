@@ -23,18 +23,28 @@ const Duration kNskOffset = Duration(hours: 7);
 /// UTC (с провода) → настенное время Новосибирска; null-safe вариант.
 DateTime? nskFromWireOpt(Object? v) => v == null ? null : nskFromWire(v);
 
+/// 🔴 НЕ зависит от часового пояса МАШИНЫ (баг 20.09: песочница UTC маскировала,
+/// машина Артёма +7 поймала). Возвращаем НАИВНЫЙ DateTime с настенным
+/// временем НСК: сначала сдвигаем в UTC-компонентах, потом снимаем зону.
 DateTime nskFromWire(Object? v) {
   if (v == null) return DateTime.fromMillisecondsSinceEpoch(0);
   final dt = v is DateTime ? v : DateTime.parse(v.toString());
   final utc = dt.isUtc ? dt : dt.toUtc();
-  return DateTime.fromMillisecondsSinceEpoch(
+  final s = DateTime.fromMillisecondsSinceEpoch(
     utc.millisecondsSinceEpoch + kNskOffset.inMilliseconds,
+    isUtc: true,
   );
+  return DateTime(s.year, s.month, s.day, s.hour, s.minute, s.second, s.millisecond);
 }
 
 /// Настенное время Новосибирска → UTC-строка для записи в БД.
-String nskToWireUtc(DateTime nskWall) =>
-    nskWall.subtract(kNskOffset).toUtc().toIso8601String();
+/// Наивный вход трактуем КАК НСК, зону навешиваем через DateTime.utc
+/// (toUtc() на наивном DateTime трактовал бы его как локальное время машины).
+String nskToWireUtc(DateTime nskWall) {
+  final u = nskWall.subtract(kNskOffset);
+  return DateTime.utc(u.year, u.month, u.day, u.hour, u.minute, u.second, u.millisecond)
+      .toIso8601String();
+}
 
 double _num(Object? v, [double d = 0]) =>
     v == null ? d : (v is num ? v.toDouble() : double.tryParse(v.toString()) ?? d);
