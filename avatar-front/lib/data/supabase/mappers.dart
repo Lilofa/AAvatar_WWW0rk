@@ -122,8 +122,7 @@ Order orderFromRow(
     createdAt: nskFromWireOpt(row['created_at']),
     myResponseStatus: myResponseStatus,
     feedbackMissed: _bool(row['feedback_missed']),
-    // 🔴 OPEN QUESTION Матвею: колонки-флага force close нет в схеме,
-    //    событие приходит только realtime-каналом (order_events).
+    // Матвей 20.09: устойчивый флаг форс-закрытия (миграция ...fixes_for_artem).
     forceClosed: _bool(row['force_closed']),
     isReplacement: isReplacement,
   );
@@ -197,7 +196,7 @@ StageAvailability availabilityFromJson(Map<String, dynamic> j) {
     isLate: _bool(j['is_late']),
     penaltyIfPressedNow: _int(j['penalty_if_pressed_now']),
     blockedReason: _str(j['blocked_reason']),
-    // 🔴 OPEN QUESTION Матвею: дедлайн фидбека (5 мин после finished) в jsonb не приходит.
+    // Матвей 20.09: feedback_deadline = finished_at + 5 мин (null до finished).
     feedbackDeadline: nskFromWireOpt(j['feedback_deadline']),
   );
 }
@@ -261,7 +260,7 @@ PorterBrief briefFromProfileRow(Map<String, dynamic> row, {bool isLead = false})
       name: _str(row['full_name']) ?? 'Грузчик',
       rating: _num(row['rating']).round(),
       completedCount: _int(row['completed_count']),
-      // 🔴 OPEN QUESTION Матвею: fail_count в profiles нет (есть только в боте).
+      // Матвей 20.09: profiles.fail_count инкрементит process_order_deadlines.
       failCount: _int(row['fail_count']),
       avatarUrl: _str(row['avatar_url']),
       isLead: isLead,
@@ -334,28 +333,39 @@ PorterLocation locationFromRow(Map<String, dynamic> row, {String? porterName}) =
 // ТАРИФ / АДРЕСА / ЗАПИСЬ ЗАКАЗА
 // ─────────────────────────────────────────────────────────────
 
-/// numeric из `quote_order` → [TariffQuote].
+/// jsonb из `quote_order_detailed` (Матвей, 20.09) → [TariffQuote].
 ///
-/// 🔴 breakdown — заглушка до детализации от Матвея (OPEN QUESTION в контракте):
-/// цена RPC уже включает коэффициенты и транспорт; раскладываем на
-/// «работы» и «транспорт» по известным тарифам транспорта.
-TariffQuote quoteFromPrice(
-  num price, {
+/// Контракт: { total: numeric, lines: [{label, amount}] }.
+/// Если lines вдруг нет (старый бэк) — раскладываем total на работы+транспорт.
+TariffQuote quoteFromDetailedJson(
+  Map<String, dynamic> j, {
   required int plannedDurationMin,
   required TransportType transport,
 }) {
-  final total = price.toDouble();
-  final fee = transport.feeRub.toDouble();
-  final work = (total - fee).clamp(0, double.infinity).toDouble();
+  final total = _num(j['total']);
+  final rawLines = j['lines'] as List?;
   final hours = (plannedDurationMin / 30).ceil() * 0.5;
+  final breakdown = <QuoteLine>[
+    if (rawLines != null)
+      for (final l in rawLines)
+        QuoteLine(
+          label: _str((l as Map)['label']) ?? 'Позиция',
+          amount: _num(l['amount']),
+        )
+    else ...[
+      QuoteLine(
+        label: 'Работы с коэффициентами',
+        amount: (total - transport.feeRub).clamp(0, double.infinity).toDouble(),
+      ),
+      if (transport.feeRub > 0)
+        QuoteLine(label: 'Транспорт', amount: transport.feeRub.toDouble()),
+    ],
+  ];
   return TariffQuote(
     price: total,
     currency: 'RUB',
     hours: hours,
-    breakdown: [
-      QuoteLine(label: 'Работы с коэффициентами', amount: work),
-      if (fee > 0) QuoteLine(label: 'Транспорт', amount: fee),
-    ],
+    breakdown: breakdown,
   );
 }
 
@@ -402,7 +412,8 @@ Map<String, dynamic> orderInsertFromRequest(
       'entrance': r.entrance == null ? null : int.tryParse(r.entrance!),
       if (r.coords != null)
         'coords_from': {'lat': r.coords!.lat, 'lng': r.coords!.lng},
-      // 🔴 price NOT NULL: до одобрения диспетчером ставим 0,
-      //    боевой тариф пересчитает диспетчер/quote_order (OPEN QUESTION).
+      // Матвей 20.09: price NOT NULL, при создании ставим 0 — триггер
+      // check_order_filled пересчитает при created → accepted.
+      // 🔴 planned_duration_min обязателен, иначе триггер не пересчитает!
       'price': 0,
     };

@@ -540,14 +540,14 @@ class SupabaseOrdersRepository implements OrdersRepository {
     TransportType transport = TransportType.none,
   }) =>
       _guard(() async {
-        final raw = await _client.rpc('quote_order', params: {
+        // Матвей 20.09: детализированный расчёт для калькулятора заказчика.
+        final j = await _rpcJson('quote_order_detailed', {
           'p_people_count': peopleCount,
           'p_planned_duration_min': plannedDurationMin,
           'p_urgency': urgency.wire,
           'p_transport': transport.wire,
         });
-        final price = raw is num ? raw : num.tryParse(raw.toString()) ?? 0;
-        return quoteFromPrice(price,
+        return quoteFromDetailedJson(j,
             plannedDurationMin: plannedDurationMin, transport: transport);
       });
 

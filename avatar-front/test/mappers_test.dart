@@ -174,23 +174,69 @@ void main() {
     });
   });
 
-  group('quoteFromPrice', () {
-    test('цена RPC раскладывается на работы + транспорт, часы по правилу 30 мин', () {
-      final q = quoteFromPrice(4500,
-          plannedDurationMin: 90, transport: TransportType.gazelle);
-      expect(q.price, 4500);
+  group('quoteFromDetailedJson (Матвей 20.09)', () {
+    test('total + lines рисуются как есть, часы по правилу 30 мин', () {
+      final q = quoteFromDetailedJson({
+        'total': 4400,
+        'lines': [
+          {'label': 'Базовый выезд', 'amount': 500},
+          {'label': 'Работы: 2 чел × 2 ч (срочный)', 'amount': 2400},
+          {'label': 'Газель', 'amount': 1500},
+        ],
+      }, plannedDurationMin: 90, transport: TransportType.gazelle);
+      expect(q.price, 4400);
       expect(q.currency, 'RUB');
       expect(q.hours, 1.5);
-      expect(q.breakdown.length, 2);
-      expect(q.breakdown.last.amount, 1500); // тариф газели
-      expect(q.breakdown.first.amount, 3000);
+      expect(q.breakdown.length, 3);
+      expect(q.breakdown.first.label, 'Базовый выезд');
+      expect(q.breakdown.last.amount, 1500);
     });
 
-    test('без транспорта — одна строка breakdown', () {
-      final q = quoteFromPrice(2000,
+    test('fallback: lines нет — раскладываем total на работы + транспорт', () {
+      final q = quoteFromDetailedJson({'total': 2000},
           plannedDurationMin: 60, transport: TransportType.none);
       expect(q.breakdown.length, 1);
+      expect(q.breakdown.first.amount, 2000);
       expect(q.hours, 1.0);
+    });
+  });
+
+  group('контракт Матвея от 20.09 (fixes_for_artem)', () {
+    test('force_closed читается из строки orders — бейдж переживает перезаход', () {
+      final o = orderFromRow(orderRow()..['force_closed'] = true);
+      expect(o.forceClosed, isTrue);
+      final o2 = orderFromRow(orderRow());
+      expect(o2.forceClosed, isFalse);
+    });
+
+    test('fail_count грузчика приходит из profiles', () {
+      final p = porterProfileFromRow({
+        'id': 'p-1',
+        'full_name': 'Артём',
+        'rating': 4.0,
+        'completed_count': 10,
+        'fail_count': 2,
+        'is_blocked': false,
+        'referral_code': 'ART1',
+      });
+      expect(p.failCount, 2);
+    });
+
+    test('feedback_deadline из get_stage_availability (finished + 5 мин)', () {
+      final a = availabilityFromJson({
+        'available': ['feedback'],
+        'next_required': 'feedback',
+        'woke_deadline': null,
+        'departed_deadline': null,
+        // 05:00Z = 12:00 НСК
+        'feedback_deadline': '2026-09-21T05:00:00+00:00',
+        'is_late': false,
+        'penalty_if_pressed_now': 0,
+        'blocked_reason': null,
+        'is_lead': true,
+      });
+      expect(a.feedbackDeadline, isNotNull);
+      expect(a.feedbackDeadline!.hour, 12);
     });
   });
 
