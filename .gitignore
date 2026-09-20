@@ -149,3 +149,13 @@ npm-debug.log*
 
 # Deno
 deno.lock
+
+# --- секреты и локальные артефакты (добавлено агентом 20.09.2026) ---
+.env
+.env.*
+!.env.example
+!.env.migration
+scripts/.tokens.json
+supabase/.temp/
+avatar-backend/supabase/.temp/
+*.tokens.json
