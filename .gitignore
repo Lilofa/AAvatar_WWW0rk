@@ -149,3 +149,25 @@ npm-debug.log*
 
 # Deno
 deno.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.migration
+
+# Local secrets
+scripts/.tokens.json
+scripts/.env*
+**/.tokens.json
+
+# Supabase temp
+supabase/.temp/
+avatar-backend/supabase/.temp/
+.branches/
+temp/
+
+# OS / IDE
+.DS_Store
+.vscode/settings.json
+*.log
