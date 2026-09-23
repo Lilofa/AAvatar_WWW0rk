@@ -50,6 +50,10 @@ abstract final class MockControls {
 
   /// Отключить случайные задержки (для виджет-тестов: pump без таймеров).
   static bool instant = false;
+
+  /// Авто-решение диспетчера по отклику через 6 секунд (Future.delayed).
+  /// В виджет-тестах выключать: висящий Timer ломает инвариант testWidgets.
+  static bool simulateDispatcher = true;
 }
 
 class MockOrdersRepository implements OrdersRepository {
@@ -463,7 +467,12 @@ class MockOrdersRepository implements OrdersRepository {
   Future<void> sendSmsCode({required String phone}) => _guard(() async {});
 
   @override
-  Future<AuthResult> verifySmsCode({required String phone, required String code}) =>
+  Future<AuthResult> verifySmsCode({
+    required String phone,
+    required String code,
+    UserRole? role,
+    String? fullName,
+  }) =>
       _guard(() async {
         if (code.trim() == '0000') {
           throw const AppFailure(
@@ -562,8 +571,10 @@ class MockOrdersRepository implements OrdersRepository {
           createdAt: _now(),
         );
         _myResponses[orderId] = r;
+        _emitFeed(); // чип «отклик отправлен» на карточке без pull-to-refresh
 
         // Имитируем диспетчера: решение через 6 секунд (или автоотклонение по таймауту).
+        if (!MockControls.simulateDispatcher) return r;
         Future.delayed(const Duration(seconds: 6), () {
           final cur = _myResponses[orderId];
           if (cur == null || cur.status != ResponseStatus.pending) return;
@@ -580,6 +591,7 @@ class MockOrdersRepository implements OrdersRepository {
             declineReason: approved ? null : 'Бригада уже собрана',
           );
           _responseCtrl(orderId).add(_myResponses[orderId]);
+          _emitFeed(); // решение диспетчера тоже меняет карточку в ленте
         });
 
         _responseCtrl(orderId).add(r);
@@ -1079,8 +1091,41 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<List<OrderResponse>> getPendingResponses({required String orderId}) => _guard(() async {
         final r = _myResponses[orderId];
-        return r == null ? const [] : [r];
+        if (r == null || r.status != ResponseStatus.pending) return const <OrderResponse>[];
+        return [
+          OrderResponse(
+            id: r.id,
+            orderId: r.orderId,
+            porterId: r.porterId,
+            etaMinutes: r.etaMinutes,
+            status: r.status,
+            createdAt: r.createdAt,
+            decidedAt: r.decidedAt,
+            decidedBy: r.decidedBy,
+            declineReason: r.declineReason,
+            porterName: 'Артём',
+          ),
+        ];
       });
+
+  @override
+  Stream<List<Order>> watchDispatcherOrders() async* {
+    List<Order> live() {
+      final list = _orders.values
+          .where((o) => const [
+                OrderStatus.new_,
+                OrderStatus.approved,
+                OrderStatus.inProgress,
+              ].contains(o.status))
+          .toList()
+        ..sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
+      return MockControls.mode == MockMode.empty ? const <Order>[] : list;
+    }
+
+    await _streamGate();
+    yield live();
+    yield* _feedCtrl.stream.map((_) => live());
+  }
 
   @override
   Future<void> approveResponse({required String responseId}) => _guard(() async {

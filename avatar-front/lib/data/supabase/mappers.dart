@@ -131,7 +131,11 @@ Order orderFromRow(
 /// Строка `order_responses` → [OrderResponse].
 ///
 /// `expired` вычисляем: pending + вышел 5-минутный таймаут одобрения.
-OrderResponse responseFromRow(Map<String, dynamic> row, {required DateTime now}) {
+OrderResponse responseFromRow(
+  Map<String, dynamic> row, {
+  required DateTime now,
+  String? porterName,
+}) {
   final createdAt = nskFromWire(row['created_at']);
   final raw = _str(row['status']) ?? 'pending';
   var status = switch (raw) {
@@ -149,6 +153,7 @@ OrderResponse responseFromRow(Map<String, dynamic> row, {required DateTime now})
     decidedAt: nskFromWireOpt(row['decided_at']),
     decidedBy: _str(row['decided_by']),
     declineReason: _str(row['decline_reason']),
+    porterName: porterName,
   );
   if (status == ResponseStatus.pending && now.isAfter(resp.expiresAt)) {
     status = ResponseStatus.expired;
@@ -162,6 +167,7 @@ OrderResponse responseFromRow(Map<String, dynamic> row, {required DateTime now})
       decidedAt: resp.expiresAt,
       decidedBy: resp.decidedBy,
       declineReason: resp.declineReason,
+      porterName: porterName,
     );
   }
   return resp;

@@ -115,9 +115,19 @@ class SupabaseOrdersRepository implements OrdersRepository {
       });
 
   @override
-  Future<AuthResult> verifySmsCode({required String phone, required String code}) =>
+  Future<AuthResult> verifySmsCode({
+    required String phone,
+    required String code,
+    UserRole? role,
+    String? fullName,
+  }) =>
       _guard(() async {
-        final data = await _invokeJson('verify-sms', {'phone': phone, 'code': code});
+        final data = await _invokeJson('verify-sms', {
+          'phone': phone,
+          'code': code,
+          if (role != null) 'role': role.name,
+          if (fullName != null) 'full_name': fullName,
+        });
         final tokenHash = data['token_hash'] as String?;
         if (tokenHash == null) throw Failures.unauthorized();
         // gotrue 2.27: verifyOTP + phone обязателен для magiclink с tokenHash.
@@ -181,62 +191,89 @@ class SupabaseOrdersRepository implements OrdersRepository {
   @override
   Stream<FeedPage> watchFeed(
           {FeedFilter filter = FeedFilter.all, int limit = 30, String? cursor}) =>
-      _guardStream(() async* {
-        final base = _client.from('orders').stream(primaryKey: ['id']);
-        Stream<List<Map<String, dynamic>>> orders;
+      _guardStream(() {
+        // Триггеры обновления: сами заказы (realtime), мои отклики
+        // (чип статуса на карточке без pull-to-refresh) и бригада для «Моих».
+        // Слияние без package:async: SDK пинит свою версию async, и явная
+        // зависимость отправляла solver pub в комбинаторный перебор (10+ мин).
+        final subs = <StreamSubscription<dynamic>>[];
+        final ctrl = StreamController<int>(
+          onCancel: () {
+            for (final s in subs) {
+              s.cancel();
+            }
+          },
+        );
+        void pipe(Stream<Object?> src, int tag) => subs.add(
+              src.listen((_) => ctrl.add(tag), onError: ctrl.addError),
+            );
+        pipe(_client.from('orders').stream(primaryKey: ['id']), 0);
+        pipe(
+          _client
+              .from('order_responses')
+              .stream(primaryKey: ['id'])
+              .eq('porter_id', _myId),
+          1,
+        );
         if (filter.onlyMine) {
-          // «Мои»: realtime по бригаде, заказы любых живых статусов.
-          orders = _client
-              .from('order_takers')
-              .stream(primaryKey: ['order_id', 'porter_id'])
-              .eq('porter_id', _myId)
-              .asyncMap((takers) async {
-            final ids = takers.map((t) => t['order_id'] as String).toList();
-            if (ids.isEmpty) return <Map<String, dynamic>>[];
-            final rows = await _client.from('orders').select().inFilter('id', ids);
-            return rows.cast<Map<String, dynamic>>();
-          });
-        } else {
-          var q = base.inFilter('status', const ['created']);
-          if (filter.urgencies != null && filter.urgencies!.isNotEmpty) {
-            q = q.inFilter('urgency',
-                filter.urgencies!.map((u) => u.wire).toSet().toList());
-          }
-          if (filter.dateFrom != null) {
-            q = q.gte('scheduled_at', nskToWireUtc(filter.dateFrom!));
-          }
-          if (filter.dateTo != null) {
-            q = q.lte('scheduled_at', nskToWireUtc(filter.dateTo!));
-          }
-          orders = q.order('scheduled_at', ascending: true);
-        }
-
-        final filtered = filter != FeedFilter.all;
-        await for (final rows in orders) {
-          var items = rows;
-          if (filter.onlyMine) {
-            items = items
-                .where((r) => OrderStatus.fromWire(r['status'] as String? ?? '')
-                    .isLive)
-                .toList();
-          }
-          final myResponses = await _myResponsesFor(
-              items.map((r) => r['id'] as String).toList());
-          final now = DateTime.now();
-          final page = FeedPage(
-            items: items
-                .map((r) => orderFromRow(
-                      r,
-                      myResponseStatus: myResponses[r['id']],
-                      now: now,
-                    ))
-                .take(limit)
-                .toList(),
-            emptyReason: await _feedEmptyReason(items.isEmpty, filtered),
+          pipe(
+            _client
+                .from('order_takers')
+                .stream(primaryKey: ['order_id', 'porter_id'])
+                .eq('porter_id', _myId),
+            2,
           );
-          yield page;
         }
+        return ctrl.stream.asyncMap((_) => _fetchFeedPage(filter, limit));
       });
+
+  /// Разовая сборка страницы ленты (по триггеру из watchFeed).
+  Future<FeedPage> _fetchFeedPage(FeedFilter filter, int limit) async {
+    List<Map<String, dynamic>> items;
+    if (filter.onlyMine) {
+      final takers = await _client
+          .from('order_takers')
+          .select('order_id')
+          .eq('porter_id', _myId);
+      final ids = takers.map((t) => t['order_id'] as String).toList();
+      items = ids.isEmpty
+          ? const []
+          : (await _client.from('orders').select().inFilter('id', ids))
+              .cast<Map<String, dynamic>>()
+              .where((r) =>
+                  OrderStatus.fromWire(r['status'] as String? ?? '').isLive)
+              .toList();
+    } else {
+      var q = _client.from('orders').select().eq('status', 'created');
+      if (filter.urgencies != null && filter.urgencies!.isNotEmpty) {
+        q = q.inFilter(
+            'urgency', filter.urgencies!.map((u) => u.wire).toSet().toList());
+      }
+      if (filter.dateFrom != null) {
+        q = q.gte('scheduled_at', nskToWireUtc(filter.dateFrom!));
+      }
+      if (filter.dateTo != null) {
+        q = q.lte('scheduled_at', nskToWireUtc(filter.dateTo!));
+      }
+      items = (await q.order('scheduled_at', ascending: true))
+          .cast<Map<String, dynamic>>();
+    }
+    final myResponses =
+        await _myResponsesFor(items.map((r) => r['id'] as String).toList());
+    final now = DateTime.now();
+    final filtered = filter != FeedFilter.all;
+    return FeedPage(
+      items: items
+          .map((r) => orderFromRow(
+                r,
+                myResponseStatus: myResponses[r['id']],
+                now: now,
+              ))
+          .take(limit)
+          .toList(),
+      emptyReason: await _feedEmptyReason(items.isEmpty, filtered),
+    );
+  }
 
   Future<Map<String, ResponseStatus>> _myResponsesFor(List<String> orderIds) async {
     if (orderIds.isEmpty || _myId.isEmpty) return const {};
@@ -579,6 +616,33 @@ class SupabaseOrdersRepository implements OrdersRepository {
   // ═══════════════════════════════════════════════════════════
 
   @override
+  Stream<List<Order>> watchDispatcherOrders() => _guardStream(() {
+        final subs = <StreamSubscription<dynamic>>[];
+        final ctrl = StreamController<int>(
+          onCancel: () {
+            for (final s in subs) {
+              s.cancel();
+            }
+          },
+        );
+        subs.add(_client
+            .from('orders')
+            .stream(primaryKey: ['id'])
+            .listen((_) => ctrl.add(0), onError: ctrl.addError));
+        return ctrl.stream.asyncMap((_) => _guard(() async {
+              final rows = await _client
+                  .from('orders')
+                  .select()
+                  .inFilter('status', const ['created', 'accepted', 'in_progress'])
+                  .order('created_at', ascending: false);
+              final now = DateTime.now();
+              return rows
+                  .map((r) => orderFromRow(r, now: now))
+                  .toList();
+            }));
+      });
+
+  @override
   Future<List<OrderResponse>> getPendingResponses({required String orderId}) =>
       _guard(() async {
         final rows = await _client
@@ -588,8 +652,14 @@ class SupabaseOrdersRepository implements OrdersRepository {
             .eq('status', 'pending')
             .order('created_at', ascending: true);
         final now = DateTime.now();
+        final names = await _profilesById(
+            rows.map((r) => r['porter_id'] as String).toList());
         return rows
-            .map((r) => responseFromRow(r, now: now))
+            .map((r) => responseFromRow(
+                  r,
+                  now: now,
+                  porterName: names[r['porter_id']]?['full_name'] as String?,
+                ))
             .toList();
       });
 

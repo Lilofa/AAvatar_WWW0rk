@@ -65,7 +65,15 @@ class FeedFilter {
 abstract interface class OrdersRepository {
   // ── 1. АВТОРИЗАЦИЯ И ПРОФИЛЬ ──────────────────────────────
   Future<void> sendSmsCode({required String phone});
-  Future<AuthResult> verifySmsCode({required String phone, required String code});
+
+  /// [role] и [fullName] используются edge-функцией verify-sms только при
+  /// ПЕРВОЙ регистрации пользователя (повторный вход их игнорирует).
+  Future<AuthResult> verifySmsCode({
+    required String phone,
+    required String code,
+    UserRole? role,
+    String? fullName,
+  });
   Stream<UserProfile?> watchCurrentUser();
   Future<PorterProfile> getPorterProfile({required String userId});
   Future<String?> getReferralCode({required String userId});
@@ -128,7 +136,10 @@ abstract interface class OrdersRepository {
   Stream<List<Order>> watchMyClientOrders();
   Future<void> cancelOrder({required String orderId, String? reason});
 
-  // ── 9. ДИСПЕТЧЕР (экраны — зона Коли, методы нужны мне для сквозного QA) ──
+  // ── 9. ДИСПЕТЧЕР (экраны — зона Коли → Артём после 20.09) ──
+  /// Живые заказы для пульта диспетчера (created/accepted/in_progress).
+  Stream<List<Order>> watchDispatcherOrders();
+
   Future<List<OrderResponse>> getPendingResponses({required String orderId});
   Future<void> approveResponse({required String responseId});
   Future<void> declineResponse({required String responseId});

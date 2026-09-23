@@ -150,6 +150,7 @@ class OrderResponse {
     this.decidedAt,
     this.decidedBy,
     this.declineReason,
+    this.porterName,
   });
 
   final String id;
@@ -161,6 +162,9 @@ class OrderResponse {
   final DateTime? decidedAt;
   final String? decidedBy;
   final String? declineReason;
+
+  /// Имя грузчика (диспетчерский пульт; join profiles).
+  final String? porterName;
 
   /// Момент автоотклонения, если диспетчер не решил.
   DateTime get expiresAt =>

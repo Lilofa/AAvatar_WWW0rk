@@ -21,9 +21,11 @@ import 'package:flutter/material.dart';
 
 import '../../../core/error/app_failure.dart';
 import '../../../data/orders_repository.dart';
+import '../../order_chat/presentation/order_chat_screen.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
 import '../../order_flow/domain/order_state_machine.dart';
+import '../../order_review/presentation/order_review_screen.dart';
 
 class OrderActiveScreen extends StatefulWidget {
   const OrderActiveScreen({
@@ -54,6 +56,7 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
   Timer? _tick;
 
   Order? _order;
+  String? _myId;
   List<OrderStage> _stages = const [];
   StageAvailability _avail = const StageAvailability(
     available: [],
@@ -98,6 +101,11 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
   }
 
   void _subscribe() {
+    _subs.add(
+      widget.repository.watchCurrentUser().listen((u) {
+        if (mounted) setState(() => _myId = u?.id);
+      }),
+    );
     _subs.add(
       widget.repository.watchOrderStatus(orderId: widget.orderId).listen(
         (status) {
@@ -204,11 +212,42 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(order.taskTitle)),
+      appBar: AppBar(
+        title: Text(order.taskTitle),
+        actions: [
+          IconButton(
+            key: const Key('active_chat_btn'),
+            tooltip: 'Чат по заказу',
+            icon: const Icon(Icons.chat_bubble_outline),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => OrderChatScreen(
+                repository: widget.repository,
+                orderId: widget.orderId,
+              ),
+            )),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           _statusChip(order),
+          if (order.status == OrderStatus.completed &&
+              _myId != null &&
+              _myId == order.clientId)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: FilledButton(
+                key: const Key('active_review_btn'),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => OrderReviewScreen(
+                    repository: widget.repository,
+                    orderId: widget.orderId,
+                  ),
+                )),
+                child: const Text('Оценить заказ'),
+              ),
+            ),
           const SizedBox(height: 12),
           if (order.isOverdueAt(_now)) _overtimeBanner(order),
           _leadBlock(),

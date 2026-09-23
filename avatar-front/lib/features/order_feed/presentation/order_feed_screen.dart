@@ -30,11 +30,19 @@ class OrderFeedScreen extends StatefulWidget {
     super.key,
     required this.repository,
     this.onOpenOrder,
+    this.onOpenMyClientOrders,
+    this.onRespond,
     this.showMockSwitch = false,
   });
 
   final OrdersRepository repository;
   final void Function(String orderId)? onOpenOrder;
+
+  /// ВРЕМЕННО (до роутинга Коли, неделя 3): вход в «Мои заказы» для заказчика.
+  final VoidCallback? onOpenMyClientOrders;
+
+  /// Отклик с ETA (MVP): диалог открывает вызывающая сторона (main).
+  final void Function(Order order)? onRespond;
 
   /// Debug-меню переключения 4 состояний (для ревью Коли и QA).
   final bool showMockSwitch;
@@ -97,7 +105,15 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
         title: const Text('Доступные заказы'),
         // Debug-переключатель сознательно НЕ в appBar: в web-дебаге правый верхний
         // угол занимает красная лента DEBUG и перехватывает тапы.
-        actions: const [],
+        actions: [
+          if (widget.onOpenMyClientOrders != null)
+            IconButton(
+              key: const Key('feed_my_client_orders'),
+              tooltip: 'Мои заказы',
+              icon: const Icon(Icons.receipt_long),
+              onPressed: widget.onOpenMyClientOrders,
+            ),
+        ],
       ),
       floatingActionButton: widget.showMockSwitch
           ? FloatingActionButton(
@@ -139,6 +155,9 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
                 return TmpOrderCard(
                   order: o,
                   onTap: () => widget.onOpenOrder?.call(o.id),
+                  onRespond: widget.onRespond == null
+                      ? null
+                      : () => widget.onRespond!(o),
                 );
               },
             ),
@@ -190,10 +209,13 @@ extension _SafeSubscribe<T> on Stream<T> {
 }
 
 class TmpOrderCard extends StatelessWidget {
-  const TmpOrderCard({super.key, required this.order, this.onTap});
+  const TmpOrderCard({super.key, required this.order, this.onTap, this.onRespond});
 
   final Order order;
   final VoidCallback? onTap;
+
+  /// Кнопка «Откликнуться» (рисует только лента, если передан колбэк).
+  final VoidCallback? onRespond;
 
   /// Дедлайн взятия заказа: immediate — час от создания, текущий — три часа.
   DateTime? get _takeDeadline {
@@ -278,6 +300,7 @@ class TmpOrderCard extends StatelessWidget {
               if (order.myResponseStatus != null) ...[
                 const SizedBox(height: 8),
                 Text(
+                  key: const Key('feed_my_response_chip'),
                   switch (order.myResponseStatus!) {
                     ResponseStatus.pending => '⏳ Отклик отправлен, ждём одобрения диспетчера',
                     ResponseStatus.declined => '❌ Отклик отклонён — можно откликнуться снова',
@@ -292,6 +315,23 @@ class TmpOrderCard extends StatelessWidget {
                             ? const Color(0xFFC62828)
                             : const Color(0xFF2E7D32),
                     fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              // MVP «отклик + одобрение»: откликнуться можно, пока заказ открыт
+              // и моего живого отклика нет (null / отклонён / истёк).
+              if (onRespond != null &&
+                  order.isOpenForResponse &&
+                  (order.myResponseStatus == null ||
+                      order.myResponseStatus == ResponseStatus.declined ||
+                      order.myResponseStatus == ResponseStatus.expired)) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    key: const Key('feed_respond_btn'),
+                    onPressed: onRespond,
+                    child: const Text('Откликнуться · указать ETA'),
                   ),
                 ),
               ],
