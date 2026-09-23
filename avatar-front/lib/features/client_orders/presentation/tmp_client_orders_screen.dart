@@ -72,6 +72,7 @@ class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
         // затем переедет в кабинет заказчика Коли.
         floatingActionButton: FloatingActionButton(
           key: const Key('client_create_fab'),
+          heroTag: 'client_create_fab',
           backgroundColor: const Color(0xFF1D5BA6),
           foregroundColor: Colors.white,
           tooltip: 'Создать заявку',

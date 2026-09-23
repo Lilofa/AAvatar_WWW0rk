@@ -40,7 +40,9 @@ abstract final class MockControls {
   static MockMode mode = MockMode.normal;
 
   /// Вероятность случайной ошибки в normal-режиме (1 из N).
-  static int randomErrorEveryN = 9;
+  /// 0 = выключено: в демо/прогоне случайные сбои бесит; error-состояния
+  /// проверяются режимом MockMode.error и виджет-тестами.
+  static int randomErrorEveryN = 0;
 
   /// Включить «гонку»: заказ уходит из-под носа при попытке откликнуться.
   static bool simulateRaceCondition = false;
@@ -496,10 +498,13 @@ class MockOrdersRepository implements OrdersRepository {
       });
 
   @override
+  // Демо-профиль со ВСЕМИ ролями: в mock-режиме хотим видеть все три
+  // вкладки shell'а (Лента / Мои заказы / Диспетчер). В live роли приходят
+  // из profiles.roles после входа.
   Stream<UserProfile?> watchCurrentUser() => Stream.value(const UserProfile(
         id: _me,
         phone: '+7 913 000-00-00',
-        roles: {UserRole.porter, UserRole.dispatcher},
+        roles: {UserRole.porter, UserRole.dispatcher, UserRole.client},
         name: 'Артём',
       ));
 
@@ -772,6 +777,24 @@ class MockOrdersRepository implements OrdersRepository {
         final next = OrderFlowMachine.nextExpected(done, morning: order.isMorning);
         final penalty = next == null ? 0 : OrderFlowMachine.penaltyFor(next, order, now);
 
+        // Причина блока — из домена (та же, что в live отдаёт RPC Матвея):
+        // до одобрения диспетчером этапы заблокированы с человекочитаемым текстом.
+        String? blocked;
+        if (next == null) {
+          blocked = 'Все этапы завершены';
+        } else if (!available.contains(next)) {
+          final d = OrderFlowMachine.decide(
+            stage: next,
+            order: order,
+            done: done,
+            isLead: me.isNotEmpty && me.first.isLead,
+            inBrigade: takers.isEmpty || me.isNotEmpty,
+            now: now,
+            finishedAt: _finishedAt(orderId),
+          );
+          blocked = d.blockReason?.describe();
+        }
+
         return StageAvailability(
           available: available,
           isLead: me.isNotEmpty && me.first.isLead,
@@ -780,7 +803,7 @@ class MockOrdersRepository implements OrdersRepository {
           departedDeadline: order.departedDeadline,
           isLate: penalty > 0,
           penaltyIfPressedNow: penalty,
-          blockedReason: next == null ? 'Все этапы завершены' : null,
+          blockedReason: blocked,
           feedbackDeadline: done.contains(OrderStageType.finished) &&
                   !done.contains(OrderStageType.feedback)
               ? _finishedAt(orderId)?.add(BizRules.feedbackTimeout)

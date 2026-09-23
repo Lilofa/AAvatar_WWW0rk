@@ -117,6 +117,9 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
       ),
       floatingActionButton: widget.showMockSwitch
           ? FloatingActionButton(
+              // IndexedStack держит все вкладки живыми: hero-теги FAB'ов
+              // обязаны быть уникальными, иначе падение на переходе роута.
+              heroTag: 'feed_debug_fab',
               tooltip: 'Состояния (debug)',
               backgroundColor: const Color(0xFF1D5BA6), // бренд-синий из брендбука
               foregroundColor: Colors.white,

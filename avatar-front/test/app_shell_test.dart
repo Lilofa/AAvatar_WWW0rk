@@ -47,10 +47,10 @@ void main() {
 
     await login(tester);
     expect(find.byKey(const Key('shell_nav')), findsOneWidget);
-    // mock-профиль: грузчик + диспетчер → две вкладки, клиентской нет
+    // демо-профиль мок-режима: все три роли → три вкладки
     expect(find.text('Лента'), findsOneWidget);
     expect(find.text('Диспетчер'), findsOneWidget);
-    expect(find.text('Мои заказы'), findsNothing);
+    expect(find.text('Мои заказы'), findsOneWidget);
   });
 
   testWidgets('вход: код 0000 → ошибка, остаёмся на логине', (tester) async {
