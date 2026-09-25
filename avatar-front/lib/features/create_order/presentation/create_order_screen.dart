@@ -257,9 +257,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   child: FilledButton.tonalIcon(
                     key: const Key('create_time_btn'),
                     onPressed: () async {
+                      // Баг-репорт 25.09: без «странного циферблата» —
+                      // сначала прямой ввод ЧЧ:ММ, циферблат — иконкой рядом.
                       final t = await showTimePicker(
                         context: context,
                         initialTime: TimeOfDay.fromDateTime(_start),
+                        initialEntryMode: TimePickerEntryMode.input,
                       );
                       if (t != null) {
                         setState(() =>

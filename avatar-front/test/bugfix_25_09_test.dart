@@ -35,7 +35,7 @@ void main() {
     }
   }
 
-  testWidgets('телефон: 12 цифр — ошибка, а не молчаливое принятие',
+  testWidgets('телефон: маска +7(983)-355-95-99 собирается сама',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: LoginScreen(
@@ -44,11 +44,59 @@ void main() {
       ),
     ));
     await settle(tester, 2);
-    await tester.enterText(find.byKey(const Key('login_phone')), '923729432121');
-    await tester.tap(find.byKey(const Key('login_send_code')));
+    await tester.enterText(find.byKey(const Key('login_phone')), '9833559599');
     await settle(tester, 2);
-    expect(find.byKey(const Key('login_error')), findsOneWidget);
-    expect(find.textContaining('+7 и ровно 10 цифр'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('login_phone'))).controller!.text,
+      '+7(983)-355-95-99',
+    );
+    // лишние цифры не проглатываются молча: поле физически не вместит 12
+    await tester.enterText(find.byKey(const Key('login_phone')), '98335595991234');
+    await settle(tester, 2);
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('login_phone'))).controller!.text,
+      '+7(983)-355-95-99',
+    );
+  });
+
+  group('валидация номера (чистая функция, без виджет-магии)', () {
+    test('короткий / длинный / пустой — невалидны', () {
+      expect(isRuPhoneValid('+7(923)-72'), isFalse);
+      expect(isRuPhoneValid('92372'), isFalse);
+      expect(isRuPhoneValid(''), isFalse);
+      expect(isRuPhoneValid('+7'), isFalse);
+    });
+    test('ровно 10 цифр после +7 — валид в любом написании', () {
+      expect(isRuPhoneValid('+7(983)-355-95-99'), isTrue);
+      expect(isRuPhoneValid('9833559599'), isTrue);
+      expect(isRuPhoneValid('89833559599'), isTrue);
+      expect(isRuPhoneValid('+79833559599'), isTrue);
+    });
+    test('маска: лишние цифры обрезаются, формат виден пользователю', () {
+      expect(formatRuPhone('98335595991234'), '+7(983)-355-95-99');
+      expect(formatRuPhone('983'), '+7(983)');
+      expect(formatRuPhone('98335'), '+7(983)-35');
+      expect(formatRuPhone(''), '+7');
+    });
+  });
+
+  testWidgets('телефон: неполный номер не пускает в шаг кода', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: LoginScreen(
+        repository: MockOrdersRepository(),
+        onAuthenticated: (_) {},
+      ),
+    ));
+    await settle(tester, 2);
+    await tester.enterText(find.byKey(const Key('login_phone')), '92372');
+    await settle(tester, 2);
+    // кнопка есть, но шаг кода не открыт и не откроется от отправки
+    expect(find.byKey(const Key('login_code')), findsNothing);
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('login_phone'))).controller!.text,
+      '+7(923)-72',
+    );
   });
 
   testWidgets('лента: на свою созданную заявку откликнуться нельзя',
@@ -146,10 +194,18 @@ void main() {
 
     await tester.tap(find.byKey(const Key('create_time_btn')));
     await tester.pumpAndSettle();
+    // режим ввода: два поля ЧЧ и ММ, без циферблата и AM/PM
     expect(find.text('AM'), findsNothing);
     expect(find.text('PM'), findsNothing);
     expect(find.text('Cancel'), findsNothing);
-    // заголовок диалога из русской локали
-    expect(find.text('Выберите время'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(TimePickerDialog),
+        matching: find.byType(TextField),
+      ),
+      findsNWidgets(2),
+    );
+    // переключиться на циферблат при желании можно иконкой
+    expect(find.byIcon(Icons.access_time), findsOneWidget);
   });
 }

@@ -14,6 +14,43 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
 
+/// Валидность российского номера: +7 и ровно 10 цифр после.
+/// Вынесено из виджета для регресс-тестов (баг-репорт 25.09).
+bool isRuPhoneValid(String text) {
+  final d = text.replaceAll(RegExp(r'\D'), '');
+  final core = (d.startsWith('7') || d.startsWith('8')) ? d.substring(1) : d;
+  return core.length == 10;
+}
+
+/// Маска российского номера: +7(983)-355-95-99.
+/// Скобки/тире появляются сами по мере ввода цифр; лишние цифры не лезут.
+String formatRuPhone(String raw) {
+  var d = raw.replaceAll(RegExp(r'\D'), '');
+  if (d.startsWith('7') || d.startsWith('8')) d = d.substring(1);
+  if (d.length > 10) d = d.substring(0, 10);
+  final b = StringBuffer('+7');
+  if (d.isNotEmpty) b.write('(${d.substring(0, d.length > 3 ? 3 : d.length)}');
+  if (d.length >= 3) b.write(')');
+  if (d.length >= 4) b.write('-${d.substring(3, d.length > 6 ? 6 : d.length)}');
+  if (d.length >= 7) b.write('-${d.substring(6, d.length > 8 ? 8 : d.length)}');
+  if (d.length >= 9) b.write('-${d.substring(8, 10)}');
+  return b.toString();
+}
+
+class _RuPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final formatted = formatRuPhone(newValue.text);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
@@ -29,7 +66,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _phone = TextEditingController();
+  final _phone = TextEditingController(text: '+7');
   final _code = TextEditingController();
   bool _codeSent = false;
   bool _busy = false;
@@ -53,13 +90,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// +7 и ровно 10 цифр после; всё остальное — ошибка (баг-репорт:
   /// «ввожу больше — программа ничего не говорит»).
-  bool get _phoneValid =>
-      RegExp(r'^\+7\d{10}$').hasMatch(_phoneNormalized);
+  bool get _phoneValid => isRuPhoneValid(_phone.text);
 
   Future<void> _sendCode() async {
     if (!_phoneValid) {
-      setState(() => _error = Failures.validation(
-          'phone', 'Телефон: +7 и ровно 10 цифр (например, +79131234567).'));
+      setState(() => _error = Failures.validation('phone',
+          'Введите номер целиком: +7(983)-355-95-99 — 10 цифр после +7.'));
       return;
     }
     setState(() {
@@ -138,12 +174,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _phone,
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[+\d]')),
-                      LengthLimitingTextInputFormatter(16),
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'[+\d()\- ]')),
+                      _RuPhoneFormatter(),
                     ],
                     decoration: const InputDecoration(
                       labelText: 'Телефон',
-                      hintText: '+7 9XX XXX-XX-XX',
+                      hintText: '+7(983)-355-95-99',
+                      helperText: 'Формат: +7(983)-355-95-99',
                       prefixIcon: Icon(Icons.phone),
                     ),
                   ),
