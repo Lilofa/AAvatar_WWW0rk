@@ -388,9 +388,10 @@ class MockOrdersRepository implements OrdersRepository {
   /// Матвей, блок 2: в каждом Order из фида приходит мой статус отклика.
   Order _withMyResponseStatus(Order o) {
     final r = _myResponses[o.id];
-    if (r == null) return o;
+    if (r == null && o.clientId != _me) return o;
     return Order(
       id: o.id,
+      clientIsMe: o.clientId == _me,
       clientId: o.clientId,
       address: o.address,
       timeStart: o.timeStart,
@@ -409,7 +410,7 @@ class MockOrdersRepository implements OrdersRepository {
       resultComment: o.resultComment,
       coords: o.coords,
       createdAt: o.createdAt,
-      myResponseStatus: r.status,
+      myResponseStatus: r?.status,
       feedbackMissed: o.feedbackMissed,
       forceClosed: o.forceClosed,
       isReplacement: o.isReplacement,
@@ -1024,7 +1025,10 @@ class MockOrdersRepository implements OrdersRepository {
         final id = 'ord-${4000 + _orders.length}';
         final o = Order(
           id: id,
-          clientId: _client,
+          // Баг-репорт 25.09: грузчик может создать заявку как заказчик —
+          // clientId = текущий демо-пользователь, чтобы работали правила
+          // «не откликаться на свою» и «не оценивать свою работу».
+          clientId: _me,
           address: req.address,
           timeStart: req.timeStart,
           plannedDurationMin: req.plannedDurationMin,
@@ -1097,7 +1101,9 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Stream<List<Order>> watchMyClientOrders() async* {
     List<Order> mine() {
-      final list = _orders.values.where((o) => o.clientId == _client).toList()
+      final list = _orders.values
+          .where((o) => o.clientId == _client || o.clientId == _me)
+          .toList()
         ..sort((a, b) => b.timeStart.compareTo(a.timeStart));
       return MockControls.mode == MockMode.empty ? const <Order>[] : list;
     }
@@ -1110,6 +1116,15 @@ class MockOrdersRepository implements OrdersRepository {
   // ───────────────────────────────────────────────────────────
   // 9. ДИСПЕТЧЕР (для сквозного QA)
   // ───────────────────────────────────────────────────────────
+
+  @override
+  Future<List<Order>> myWorkOrders() async {
+    final ids = _orderTakers.entries
+        .where((e) => e.value.any((t) => t.porter.id == _me))
+        .map((e) => e.key)
+        .toSet();
+    return _orders.values.where((o) => ids.contains(o.id)).toList();
+  }
 
   @override
   Future<List<OrderResponse>> getPendingResponses({required String orderId}) => _guard(() async {

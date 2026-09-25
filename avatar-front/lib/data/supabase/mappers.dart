@@ -94,6 +94,7 @@ Order orderFromRow(
   Map<String, dynamic> row, {
   ResponseStatus? myResponseStatus,
   DateTime? now,
+  bool clientIsMe = false,
 }) {
   final urgencyRaw = _str(row['urgency']) ?? 'current';
   final isReplacement = _bool(row['is_replacement']);
@@ -125,6 +126,7 @@ Order orderFromRow(
     // Матвей 20.09: устойчивый флаг форс-закрытия (миграция ...fixes_for_artem).
     forceClosed: _bool(row['force_closed']),
     isReplacement: isReplacement,
+    clientIsMe: clientIsMe,
   );
 }
 

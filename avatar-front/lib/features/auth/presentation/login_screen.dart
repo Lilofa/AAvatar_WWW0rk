@@ -51,11 +51,15 @@ class _LoginScreenState extends State<LoginScreen> {
     return '+7$digits';
   }
 
+  /// +7 и ровно 10 цифр после; всё остальное — ошибка (баг-репорт:
+  /// «ввожу больше — программа ничего не говорит»).
+  bool get _phoneValid =>
+      RegExp(r'^\+7\d{10}$').hasMatch(_phoneNormalized);
+
   Future<void> _sendCode() async {
-    final digits = _phone.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 10) {
-      setState(() => _error =
-          Failures.validation('phone', 'Введите телефон: +7 и 10 цифр.'));
+    if (!_phoneValid) {
+      setState(() => _error = Failures.validation(
+          'phone', 'Телефон: +7 и ровно 10 цифр (например, +79131234567).'));
       return;
     }
     setState(() {
@@ -134,7 +138,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _phone,
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[+\d]'))
+                      FilteringTextInputFormatter.allow(RegExp(r'[+\d]')),
+                      LengthLimitingTextInputFormatter(16),
                     ],
                     decoration: const InputDecoration(
                       labelText: 'Телефон',

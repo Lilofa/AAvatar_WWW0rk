@@ -268,6 +268,7 @@ class SupabaseOrdersRepository implements OrdersRepository {
                 r,
                 myResponseStatus: myResponses[r['id']],
                 now: now,
+                clientIsMe: r['client_id'] == _myId,
               ))
           .take(limit)
           .toList(),
@@ -310,7 +311,9 @@ class SupabaseOrdersRepository implements OrdersRepository {
         final row = await _client.from('orders').select().eq('id', orderId).single();
         final my = await _myResponsesFor([orderId]);
         return orderFromRow(row,
-            myResponseStatus: my[orderId], now: DateTime.now());
+            myResponseStatus: my[orderId],
+            now: DateTime.now(),
+            clientIsMe: row['client_id'] == _myId);
       });
 
   @override
@@ -556,7 +559,7 @@ class SupabaseOrdersRepository implements OrdersRepository {
             .insert(orderInsertFromRequest(request, clientId: _myId))
             .select()
             .single();
-        return orderFromRow(row, now: DateTime.now());
+        return orderFromRow(row, now: DateTime.now(), clientIsMe: true);
       });
 
   @override
@@ -597,9 +600,26 @@ class SupabaseOrdersRepository implements OrdersRepository {
             .order('created_at', ascending: false)
             .map((rows) => rows
                 .map((r) => orderFromRow(r,
-                    now: DateTime.now()))
+                    now: DateTime.now(), clientIsMe: true))
                 .toList()),
       );
+
+  @override
+  Future<List<Order>> myWorkOrders() => _guard(() async {
+        final takers = await _client
+            .from('order_takers')
+            .select('order_id')
+            .eq('porter_id', _myId);
+        final ids = takers.map((t) => t['order_id'] as String).toList();
+        if (ids.isEmpty) return const <Order>[];
+        final rows =
+            await _client.from('orders').select().inFilter('id', ids);
+        final now = DateTime.now();
+        return rows
+            .map((r) => orderFromRow(r,
+                now: now, clientIsMe: r['client_id'] == _myId))
+            .toList();
+      });
 
   @override
   Future<void> cancelOrder({required String orderId, String? reason}) =>

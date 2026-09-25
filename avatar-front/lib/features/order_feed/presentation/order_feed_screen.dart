@@ -156,6 +156,7 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
               itemBuilder: (context, i) {
                 final o = _orders[i];
                 return TmpOrderCard(
+                  key: Key('feed_card_${o.id}'),
                   order: o,
                   onTap: () => widget.onOpenOrder?.call(o.id),
                   onRespond: widget.onRespond == null
@@ -221,18 +222,23 @@ class TmpOrderCard extends StatelessWidget {
   final VoidCallback? onRespond;
 
   /// Дедлайн взятия заказа: immediate — час от создания, текущий — три часа.
+  /// 🔴 Баг-репорт 25.09 («баг с временем»): дедлайн не может быть позже
+  /// начала работ — ограничиваем сверху timeStart и не рисуем просроченный.
   DateTime? get _takeDeadline {
     final base = order.createdAt ?? order.timeStart.subtract(const Duration(hours: 1));
+    final DateTime window;
     switch (order.urgency) {
       case OrderUrgency.urgent:
       case OrderUrgency.replacement:
-        return base.add(const Duration(hours: 1));
+        window = base.add(const Duration(hours: 1));
       case OrderUrgency.current:
-        return base.add(const Duration(hours: 3));
+        window = base.add(const Duration(hours: 3));
       case OrderUrgency.preliminary:
       case OrderUrgency.advance:
         return null;
     }
+    final capped = window.isAfter(order.timeStart) ? order.timeStart : window;
+    return capped.isAfter(DateTime.now()) ? capped : null;
   }
 
   /// «19:37», если сегодня; иначе полная метка. Без слова «дедлайн»:
@@ -325,6 +331,7 @@ class TmpOrderCard extends StatelessWidget {
               // и моего живого отклика нет (null / отклонён / истёк).
               if (onRespond != null &&
                   order.isOpenForResponse &&
+                  !order.clientIsMe &&
                   (order.myResponseStatus == null ||
                       order.myResponseStatus == ResponseStatus.declined ||
                       order.myResponseStatus == ResponseStatus.expired)) ...[

@@ -66,6 +66,7 @@ class Order {
     this.feedbackMissed = false,
     this.forceClosed = false,
     this.isReplacement = false,
+    this.clientIsMe = false,
   });
 
   final String id;
@@ -110,6 +111,9 @@ class Order {
   /// Заказ закрыт принудительно диспетчером.
   final bool forceClosed;
   final bool isReplacement;
+
+  /// Я — заказчик этого заказа (нельзя откликаться на свою заявку).
+  final bool clientIsMe;
 
   bool get isMorning => BizRules.isMorningOrder(timeStart);
 

@@ -18,6 +18,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   supabase_flutter: ^2.8.0
   # Стиль работы с Riverpod фиксирует Коля — пока не добавляю,
   # чтобы не разошлись версии. См. REQUEST_to_Kolya.md, раздел 4.

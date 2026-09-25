@@ -234,7 +234,9 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
           _statusChip(order),
           if (order.status == OrderStatus.completed &&
               _myId != null &&
-              _myId == order.clientId)
+              _myId == order.clientId &&
+              // баг-репорт 25.09: грузчик не оценивает заказ, в котором работал
+              !_takers.any((t) => t.porter.id == _myId))
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: FilledButton(

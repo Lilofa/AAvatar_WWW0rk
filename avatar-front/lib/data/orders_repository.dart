@@ -134,6 +134,12 @@ abstract interface class OrdersRepository {
   });
 
   Stream<List<Order>> watchMyClientOrders();
+
+  /// Заказы, где я в бригаде (моя работа грузчиком). Баг-репорт 25.09:
+  /// «Мои заказы» не должны смешиваться с моей работой, и свои же
+  /// выполненные заказы я оценивать не могу.
+  Future<List<Order>> myWorkOrders();
+
   Future<void> cancelOrder({required String orderId, String? reason});
 
   // ── 9. ДИСПЕТЧЕР (экраны — зона Коли → Артём после 20.09) ──

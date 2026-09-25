@@ -12,6 +12,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/home_shell.dart';
@@ -43,6 +44,15 @@ class AvatarApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'Аватар',
+        // Русская локаль: 24-часовой формат и русские date/time-пикеры
+        // (баг-репорт 25.09: «Select time / AM / PM» у начальника).
+        locale: const Locale('ru'),
+        supportedLocales: const [Locale('ru'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         theme: AppTheme.light(),
         home: AuthGate(repository: repository),
         onGenerateRoute: (settings) {
