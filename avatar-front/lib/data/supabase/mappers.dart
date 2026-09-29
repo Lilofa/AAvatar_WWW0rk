@@ -337,6 +337,13 @@ PorterLocation locationFromRow(Map<String, dynamic> row, {String? porterName}) =
       at: nskFromWire(row['created_at']),
     );
 
+/// Маска телефона для списков: +7 ••• •••-••-99 (последние две цифры).
+String maskPhone(String? phone) {
+  final d = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+  if (d.length < 4) return 'номер скрыт';
+  return '+7 ••• •••-••-${d.substring(d.length - 2)}';
+}
+
 // ─────────────────────────────────────────────────────────────
 // ТАРИФ / АДРЕСА / ЗАПИСЬ ЗАКАЗА
 // ─────────────────────────────────────────────────────────────

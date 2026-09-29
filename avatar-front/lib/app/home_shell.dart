@@ -16,6 +16,7 @@ import '../features/dispatcher/presentation/dispatcher_screen.dart';
 import '../features/order_feed/presentation/order_feed_screen.dart';
 import '../features/order_flow/domain/enums.dart';
 import '../features/order_response/presentation/respond_dialog.dart';
+import '../features/referrals/presentation/referrals_screen.dart';
 
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key, required this.repository});
@@ -83,6 +84,15 @@ class _ShellState extends State<_Shell> {
           Icons.receipt_long_outlined,
           TmpClientOrdersScreen(
             key: const Key('shell_client'),
+            repository: widget.repository,
+          ),
+        ),
+      if (roles.contains(UserRole.porter))
+        _Tab(
+          'Рефералы',
+          Icons.card_giftcard_outlined,
+          ReferralsScreen(
+            key: const Key('shell_referrals'),
             repository: widget.repository,
           ),
         ),

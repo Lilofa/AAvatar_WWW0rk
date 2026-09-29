@@ -61,6 +61,30 @@ class FeedFilter {
   static const all = FeedFilter();
 }
 
+/// Реферальная информация пользователя (v2, зеркало бота «Бонусная система»).
+class ReferralEntry {
+  const ReferralEntry({
+    required this.name,
+    required this.phoneMasked,
+    required this.status,
+    this.joinedAt,
+  });
+  final String name;
+  final String phoneMasked;
+  final ReferralStatus status;
+  final DateTime? joinedAt;
+}
+
+class ReferralInfo {
+  const ReferralInfo({
+    required this.code,
+    required this.invited,
+  });
+  final String? code;
+  final List<ReferralEntry> invited;
+  int get count => invited.length;
+}
+
 /// Один контракт на все методы потока. Ошибки — только [AppFailure].
 abstract interface class OrdersRepository {
   // ── 1. АВТОРИЗАЦИЯ И ПРОФИЛЬ ──────────────────────────────
@@ -153,6 +177,14 @@ abstract interface class OrdersRepository {
   Future<void> forceCloseOrder({required String orderId, required String comment});
   Future<void> findReplacement({required String orderId});
   Stream<List<PorterLocation>> watchPorterLocations({required String orderId});
+
+  // ── 11. РЕФЕРАЛКА (v2; бэк: profiles.referral_code/invited_by) ──
+  /// Мой код + кого привёл. Статусы засчёта (5 дней в чате) считает бэк;
+  /// пока таблицы referrals нет — все входящие считаются fresh (пинг Матвею).
+  Future<ReferralInfo> getMyReferralInfo();
+
+  /// Сгенерировать код, если его нет (RPC profiles_gen_referral_code).
+  Future<String> ensureReferralCode();
 
   // ── 10. ФОТО ЗАКАЗА (storage bucket 'orders', миграция 18.09) ──
   /// Загрузить фото к заказу; возвращает публичный URL для вставки в отзыв/чат.

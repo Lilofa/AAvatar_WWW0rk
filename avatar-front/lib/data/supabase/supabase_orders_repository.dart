@@ -722,6 +722,48 @@ class SupabaseOrdersRepository implements OrdersRepository {
       );
 
   // ═══════════════════════════════════════════════════════════
+  // 11. РЕФЕРАЛКА (v2)
+  // ═══════════════════════════════════════════════════════════
+
+  @override
+  Future<ReferralInfo> getMyReferralInfo() => _guard(() async {
+        final me = await _client
+            .from('profiles')
+            .select('referral_code')
+            .eq('id', _myId)
+            .maybeSingle();
+        final invited = await _client
+            .from('profiles')
+            .select('full_name, phone')
+            .eq('invited_by', _myId);
+        return ReferralInfo(
+          code: me?['referral_code'] as String?,
+          invited: [
+            for (final r in invited)
+              ReferralEntry(
+                name: _str2(r['full_name']),
+                phoneMasked: maskPhone(r['phone'] as String?),
+                // 🔴 OPEN QUESTION Матвею: таблицы referrals со статусами
+                // new/counted/left и кроном засчёта (5 дней) пока нет —
+                // всё, что пришло, рисуем как fresh.
+                status: ReferralStatus.fresh,
+              ),
+          ],
+        );
+      });
+
+  @override
+  Future<String> ensureReferralCode() => _guard(() async {
+        final code = await _client.rpc('profiles_gen_referral_code');
+        return code is String ? code : code.toString();
+      });
+
+  static String _str2(Object? v) {
+    final s = v?.toString();
+    return (s == null || s.isEmpty) ? 'Участник' : s;
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // 10. ФОТО ЗАКАЗА (storage bucket 'orders')
   // ═══════════════════════════════════════════════════════════
 

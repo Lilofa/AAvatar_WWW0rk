@@ -1331,6 +1331,32 @@ class MockOrdersRepository implements OrdersRepository {
       );
 
   @override
+  Future<ReferralInfo> getMyReferralInfo() => _guard(() async {
+        if (MockControls.mode == MockMode.empty) {
+          return const ReferralInfo(code: null, invited: []);
+        }
+        return const ReferralInfo(
+          code: 'ARTEM26',
+          invited: [
+            ReferralEntry(
+              name: 'Сергей П.',
+              phoneMasked: '+7 ••• •••-••-14',
+              status: ReferralStatus.counted,
+            ),
+            ReferralEntry(
+              name: 'Марат К.',
+              phoneMasked: '+7 ••• •••-••-02',
+              status: ReferralStatus.fresh,
+            ),
+          ],
+        );
+      }, errorEveryN: 0);
+
+  @override
+  Future<String> ensureReferralCode() => _guard(() async => 'ARTEM26',
+      errorEveryN: 0);
+
+  @override
   Future<String> uploadOrderPhoto({
     required String orderId,
     required Uint8List bytes,
