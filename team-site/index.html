@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Аватар-тим — разработка приложений, сайтов и автоматизации</title>
+<meta name="description" content="Команда разработчиков из Новосибирска: мобильные приложения, сайты, автоматизация. Живой кейс — приложение для службы грузчиков. Оценка за 1-2 дня, оплата траншами.">
+<style>
+  :root{--blue:#1D5BA6;--yellow:#F5E326;--bg:#F4F6FA;--ink:#101828;--mut:#5b6472}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  header{background:var(--blue);color:#fff;padding:14px 0;position:sticky;top:0;z-index:9}
+  header .wrap{display:flex;align-items:center;gap:16px;justify-content:space-between}
+  .logo{font-weight:800;font-size:20px;letter-spacing:.5px}
+  .logo b{color:var(--yellow)}
+  nav a{color:#fff;text-decoration:none;margin-left:18px;font-size:14px;opacity:.9}
+  nav a:hover{opacity:1;text-decoration:underline}
+  .hero{padding:72px 0 56px;background:linear-gradient(180deg,#17497f 0%,var(--blue) 100%);color:#fff}
+  .hero h1{font-size:clamp(28px,4.6vw,46px);line-height:1.15;font-weight:800;max-width:760px}
+  .hero p{margin:18px 0 28px;font-size:18px;opacity:.92;max-width:640px}
+  .btn{display:inline-block;background:var(--yellow);color:#111;font-weight:700;padding:14px 26px;border-radius:12px;text-decoration:none;border:0;font-size:16px;cursor:pointer}
+  .btn.ghost{background:transparent;color:#fff;border:2px solid rgba(255,255,255,.6);margin-left:12px}
+  .btn.blue{background:var(--blue);color:#fff}
+  section{padding:56px 0}
+  h2{font-size:clamp(22px,3vw,32px);font-weight:800;margin-bottom:8px}
+  .sub{color:var(--mut);margin-bottom:28px;max-width:680px}
+  .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .card{background:#fff;border-radius:16px;padding:22px;box-shadow:0 1px 3px rgba(16,24,40,.08)}
+  .card h3{font-size:17px;margin-bottom:8px}
+  .card p{font-size:14px;color:var(--mut)}
+  .tag{display:inline-block;background:rgba(29,91,166,.1);color:var(--blue);font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;margin-bottom:10px}
+  .case{background:#fff;border-radius:20px;padding:32px;display:grid;gap:24px;grid-template-columns:1.2fr .8fr;box-shadow:0 2px 8px rgba(16,24,40,.08)}
+  @media(max-width:800px){.case{grid-template-columns:1fr}}
+  .case ul{margin:14px 0 20px 18px;font-size:15px}
+  .case li{margin-bottom:6px}
+  .demo{background:var(--bg);border-radius:14px;padding:20px;text-align:center}
+  .demo .phone{font-size:40px}
+  .steps{counter-reset:s;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .step{background:#fff;border-radius:16px;padding:18px;position:relative}
+  .step:before{counter-increment:s;content:counter(s);position:absolute;top:-12px;left:16px;background:var(--yellow);color:#111;font-weight:800;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  form{background:#fff;border-radius:20px;padding:28px;display:grid;gap:12px;max-width:640px;margin:0 auto}
+  label{font-size:13px;font-weight:600;color:var(--mut)}
+  input,select,textarea{width:100%;padding:12px 14px;border:1px solid #d0d5dd;border-radius:10px;font-size:15px;font-family:inherit}
+  textarea{min-height:90px;resize:vertical}
+  footer{background:#101828;color:#98a2b3;padding:32px 0;font-size:13px}
+  footer a{color:#c7d0dd}
+  .muted{color:var(--mut);font-size:14px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="logo">АВАТАР<b>·ТИМ</b></div>
+  <nav><a href="#case">Кейс</a><a href="#services">Услуги</a><a href="#process">Процесс</a><a href="#lead">Оставить заявку</a></nav>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <h1>Разрабатываем приложения, сайты и автоматизацию, которые окупаются</h1>
+  <p>Команда из Новосибирска, 4 специалиста + собственный AI-агент в пайплайне.
+  Показываем не презентации, а живой продукт: наше приложение для службы
+  перевозок работает прямо в браузере — потыкайте до разговора.</p>
+  <a class="btn" href="#lead">Получить расчёт за 1-2 дня</a>
+  <a class="btn ghost" href="#case">Смотреть живой кейс</a>
+</div></div>
+
+<section id="case"><div class="wrap">
+  <h2>Кейс: «Аватар» для службы грузчиков</h2>
+  <p class="sub">Бизнес принимал заявки в VK-ботах и Google-таблицах. Мы перевели его
+  в мобильное приложение с реальным временем и ролями.</p>
+  <div class="case">
+    <div>
+      <span class="tag">Flutter · Supabase · Cloudflare · 4 недели до MVP</span>
+      <ul>
+        <li>Заявка за 2 минуты: адрес с подсказками, тариф с построчным расчётом.</li>
+        <li>Лента заказов, отклики с ETA, одобрение диспетчером в один тап.</li>
+        <li>Этапы работ в реальном времени, чат бригады, фото, отзывы и рейтинги.</li>
+        <li>Пульт диспетчера и веб-админка владельца: выручка, топы, контроль.</li>
+        <li>Результат: MVP за 4 недели, клиент заплатил аванс, заявки идут через приложение.</li>
+      </ul>
+      <p class="muted">Данные клиента в демо не попали: стенд работает на
+      демонстрационных заказах.</p>
+    </div>
+    <div class="demo">
+      <div class="phone">📱</div>
+      <p style="margin:10px 0 16px"><b>Демо-стенд приложения</b><br>
+      <span class="muted">открывается в браузере, вход любым кодом кроме 0000</span></p>
+      <a class="btn blue" href="https://silver-daifuku-5c5876.netlify.app/" target="_blank" rel="noopener">Открыть демо</a>
+    </div>
+  </div>
+</div></section>
+
+<section id="services" style="background:#eef1f7"><div class="wrap">
+  <h2>Что мы делаем</h2>
+  <p class="sub">Точную цену называем после 15-минутного брифа — расчёт бесплатный и ни к чему не обязывает.</p>
+  <div class="grid">
+    <div class="card"><span class="tag">от 4 недель</span><h3>Мобильные приложения</h3><p>iOS/Android на Flutter: MVP до магазина, realtime, роли, отзывы, push. Наш кейс — тому доказательство.</p></div>
+    <div class="card"><span class="tag">2–8 недель</span><h3>Сайты и магазины</h3><p>Лендинги под рекламу, корпоративные сайты, интернет-магазины с админкой. Быстро, с аналитикой и SEO-базой.</p></div>
+    <div class="card"><span class="tag">1–2 недели</span><h3>Автоматизация и скрипты</h3><p>Боты VK/Telegram, парсеры, интеграции Sheets/1C/sms, облачные функции. Убираем ручной труд из учёта и заявок.</p></div>
+    <div class="card"><span class="tag">постоянно</span><h3>Спасение и поддержка кода</h3><p>Аудит чужого проекта, доработки, развитие legacy, гарантийная поддержка 2 месяца в цене каждой работы.</p></div>
+  </div>
+</div></section>
+
+<section id="process"><div class="wrap">
+  <h2>Как мы работаем</h2>
+  <p class="sub">Вы никогда не платите всё вперёд: оплата траншами после приёмки каждого этапа.</p>
+  <div class="steps">
+    <div class="step"><b>Бриф 15 минут</b><p class="muted">Задачи, сроки, ориентир бюджета. Демо нашего кейса на вашем экране.</p></div>
+    <div class="step"><b>Расчёт 1–2 дня</b><p class="muted">Смета по этапам и вилка сроков. Бесплатно.</p></div>
+    <div class="step"><b>Договор и транш</b><p class="muted">Этапы с приёмкой, оплата 20–25% за этап.</p></div>
+    <div class="step"><b>Спринты с демо</b><p class="muted">Каждую неделю показываете рабочее, а не отчёт.</p></div>
+    <div class="step"><b>Релиз и гарантия</b><p class="muted">Публикация, обучение, 2 месяца поддержки включены.</p></div>
+  </div>
+</div></section>
+
+<section id="lead" style="background:#eef1f7"><div class="wrap">
+  <h2 style="text-align:center">Оставить заявку</h2>
+  <p class="sub" style="text-align:center;margin:0 auto 24px">Ответим в течение рабочего дня, пришлём расчёт и дату демо.</p>
+  <form name="lead" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+    <input type="hidden" name="form-name" value="lead">
+    <p style="display:none"><label>bot-field<input name="bot-field"></label></p>
+    <label>Имя и компания</label><input name="name" required placeholder="Иван, «Ромашка»">
+    <label>Телефон или Telegram</label><input name="contact" required placeholder="+7 9XX XXX-XX-XX">
+    <label>Тип задачи</label>
+    <select name="task"><option>Мобильное приложение</option><option>Сайт / лендинг</option><option>Автоматизация / бот / скрипт</option><option>Доработка или поддержка кода</option><option>Другое</option></select>
+    <label>Пара слов о задаче</label><textarea name="message" placeholder="Что болит, какие сроки, есть ли уже что-то готовое"></textarea>
+    <button class="btn blue" type="submit">Отправить заявку</button>
+    <p class="muted" style="text-align:center">Нажимая кнопку, вы соглашаетесь с <a href="privacy.html">политикой конфиденциальности</a>.</p>
+  </form>
+</div></section>
+
+<footer><div class="wrap">
+  <p>Аватар-тим · Новосибирск · работаем удалённо по РФ и СНГ</p>
+  <p><a href="privacy.html">Политика конфиденциальности</a> · <a href="terms.html">Пользовательское соглашение</a></p>
+</div></footer>
+</body>
+</html>
