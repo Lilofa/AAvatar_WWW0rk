@@ -1,0 +1,8 @@
+# КОПИЯ ВНЕ GIT: cp key.properties.example key.properties и заполнить.
+# keystore-файл хранить ВНЕ репозитория (два защищённых места), пароль у бизнесмена.
+# Генерация: keytool -genkeypair -v -keystore avatar-release.jks -keyalg RSA \
+#   -keysize 2048 -validity 10000 -alias avatar
+storeFile=C:/path/to/avatar-release.jks
+storePassword=CHANGE_ME
+keyAlias=avatar
+keyPassword=CHANGE_ME

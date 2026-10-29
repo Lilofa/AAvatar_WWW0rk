@@ -8,8 +8,10 @@
 library;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/error/app_failure.dart';
 import '../../../data/orders_repository.dart';
@@ -37,6 +39,8 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
   List<ChatMessage>? _messages;
   AppFailure? _error;
   bool _sending = false;
+  Uint8List? _pendingBytes;
+  String? _pendingName;
   final _input = TextEditingController();
 
   @override
@@ -80,14 +84,57 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     _listen();
   }
 
+  Future<void> _pick() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1600,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      // XFile.fromData/некоторые платформы не несут name — генерируем сами.
+      final name = file.name.isEmpty
+          ? 'photo-${DateTime.now().millisecondsSinceEpoch}.jpg'
+          : file.name;
+      if (mounted) {
+        setState(() {
+          _pendingBytes = bytes;
+          _pendingName = name;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Не удалось открыть галерею на этом устройстве.')));
+      }
+    }
+  }
+
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty || _sending) return;
+    final bytes = _pendingBytes;
+    if ((text.isEmpty && bytes == null) || _sending) return;
     setState(() => _sending = true);
     try {
-      await widget.repository
-          .sendOrderChatMessage(orderId: widget.orderId, text: text);
+      String? url;
+      if (bytes != null) {
+        url = await widget.repository.uploadOrderPhoto(
+          orderId: widget.orderId,
+          bytes: bytes,
+          fileName: _pendingName ?? 'photo.jpg',
+        );
+      }
+      await widget.repository.sendOrderChatMessage(
+        orderId: widget.orderId,
+        text: text.isEmpty ? '📷 Фото с заказа' : text,
+        attachmentUrl: url,
+      );
       _input.clear();
+      setState(() {
+        _pendingBytes = null;
+        _pendingName = null;
+      });
     } on AppFailure catch (f) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -198,10 +245,18 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
                   color: mine ? Colors.white70 : OrderChatScreen.brandBlue,
                 ),
               ),
-            Text(
-              m.text,
-              style: TextStyle(color: mine ? Colors.white : Colors.black87),
-            ),
+            if (m.attachmentUrl != null)
+              _attachment(m.attachmentUrl!, mine)
+            else
+              Text(
+                m.text,
+                style: TextStyle(color: mine ? Colors.white : Colors.black87),
+              ),
+            if (m.attachmentUrl != null)
+              Text(
+                m.text,
+                style: TextStyle(color: mine ? Colors.white : Colors.black87),
+              ),
             Text(
               '${m.sentAt.hour.toString().padLeft(2, '0')}:${m.sentAt.minute.toString().padLeft(2, '0')}',
               style: TextStyle(fontSize: 10, color: mine ? Colors.white60 : Colors.grey),
@@ -212,11 +267,77 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     );
   }
 
+  /// Фото в пузыре: mock:// не грузим (заглушка), live — Image.network.
+  Widget _attachment(String url, bool mine) {
+    if (url.startsWith('mock://')) {
+      return Container(
+        key: const Key('chat_attachment'),
+        width: 160,
+        height: 100,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: mine ? Colors.white24 : Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.image, size: 40),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        url,
+        key: const Key('chat_attachment'),
+        width: 180,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined),
+      ),
+    );
+  }
+
   Widget _inputRow() => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              if (_pendingBytes != null)
+                Container(
+                  key: const Key('chat_attach_chip'),
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.memory(_pendingBytes!,
+                          width: 36, height: 36, fit: BoxFit.cover),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(_pendingName ?? 'photo.jpg',
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                      IconButton(
+                        key: const Key('chat_attach_remove'),
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => setState(() {
+                          _pendingBytes = null;
+                          _pendingName = null;
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+              Row(
+            children: [
+              IconButton(
+                key: const Key('chat_attach'),
+                tooltip: 'Прикрепить фото',
+                icon: const Icon(Icons.attach_file),
+                onPressed: _sending ? null : _pick,
+              ),
               Expanded(
                 child: TextField(
                   key: const Key('chat_input'),
@@ -246,6 +367,8 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
                         ),
                       )
                     : const Icon(Icons.send, color: Colors.white),
+              ),
+            ],
               ),
             ],
           ),

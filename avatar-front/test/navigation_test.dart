@@ -7,7 +7,7 @@
 library;
 
 import 'package:avatar_app/data/mock_orders_repository.dart';
-import 'package:avatar_app/features/client_orders/presentation/tmp_client_orders_screen.dart';
+import 'package:avatar_app/features/client_orders/presentation/client_cabinet_screen.dart';
 import 'package:avatar_app/features/order_active/presentation/order_active_screen.dart';
 import 'package:avatar_app/features/order_feed/presentation/order_feed_screen.dart';
 import 'package:flutter/material.dart';
@@ -87,7 +87,7 @@ void main() {
   testWidgets('«Мои заказы»: список, отзыв на завершённом, вход в отзыв',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: TmpClientOrdersScreen(repository: MockOrdersRepository()),
+      home: ClientCabinetScreen(repository: MockOrdersRepository()),
     ));
     await settle(tester);
     expect(find.byKey(const Key('client_orders_list')), findsOneWidget);

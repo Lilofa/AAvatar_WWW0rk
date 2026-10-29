@@ -16,6 +16,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/error/app_failure.dart';
+import '../../core/monitoring/app_monitor.dart';
 import '../../features/order_flow/domain/enums.dart';
 import '../../features/order_flow/domain/models.dart';
 import '../orders_repository.dart';
@@ -35,14 +36,17 @@ class SupabaseOrdersRepository implements OrdersRepository {
   Future<T> _guard<T>(Future<T> Function() body) async {
     try {
       return await body();
-    } on AppFailure {
+    } on AppFailure catch (f) {
+      AppMonitor.failure(f, where: 'data');
       rethrow;
     } on FunctionException catch (e) {
       // edge-функции отвечают {ok:false,error:'...'} с 4xx/5xx
       final msg = (e.details is Map ? (e.details as Map)['error'] : e.details)?.toString();
       throw Failures.server(msg ?? e.reasonPhrase);
     } catch (e) {
-      throw _err.map(e);
+      final f = _err.map(e);
+      AppMonitor.failure(f, where: 'data');
+      throw f;
     }
   }
 
@@ -52,7 +56,9 @@ class SupabaseOrdersRepository implements OrdersRepository {
     } on AppFailure {
       rethrow;
     } catch (e) {
-      throw _err.map(e);
+      final f = _err.map(e);
+      AppMonitor.failure(f, where: 'data-stream');
+      throw f;
     }
   }
 
@@ -539,12 +545,17 @@ class SupabaseOrdersRepository implements OrdersRepository {
       );
 
   @override
-  Future<void> sendOrderChatMessage({required String orderId, required String text}) =>
+  Future<void> sendOrderChatMessage({
+    required String orderId,
+    required String text,
+    String? attachmentUrl,
+  }) =>
       _guard(() async {
         await _client.from('messages').insert({
           'order_id': orderId,
           'author_id': _myId,
           'text': text,
+          if (attachmentUrl != null) 'attachment_url': attachmentUrl,
         });
       });
 

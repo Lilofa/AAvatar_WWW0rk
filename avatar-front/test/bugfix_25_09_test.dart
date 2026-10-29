@@ -154,17 +154,14 @@ void main() {
     await tester.tap(find.text('Мои заказы'));
     await settle(tester);
 
-    // секция «Моя работа (как грузчик)» может быть ниже сгиба — доскроллим
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('client_work_section')),
-      200,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('client_orders_list')),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    await settle(tester, 2);
-    expect(find.byKey(const Key('client_work_section')), findsOneWidget);
+    // секция «Моя работа (как грузчик)» ниже сгиба — доскроллим драгами
+    for (var i = 0; i < 5; i++) {
+      if (find.byKey(const Key('cab_work_section')).evaluate().isNotEmpty) break;
+      await tester.drag(
+          find.byKey(const Key('client_orders_list')), const Offset(0, -350));
+      await settle(tester, 2);
+    }
+    expect(find.byKey(const Key('cab_work_section')), findsOneWidget);
     expect(find.byKey(const Key('client_work_card')), findsOneWidget);
 
     // на СВОЙ выполненный заказ кнопки «Оценить» нет
@@ -174,6 +171,16 @@ void main() {
           matching: find.byKey(const Key('client_order_review_btn'))),
       findsNothing,
     );
+    // чужой выполненный заказ (ord-3001) оценить можно: докрутим до кнопки
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('client_order_review_btn')),
+      -200,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('client_orders_list')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await settle(tester, 2);
     // чужой выполненный заказ (ord-3001) оценить можно: ровно одна кнопка
     expect(find.byKey(const Key('client_order_review_btn')), findsOneWidget);
   });

@@ -974,7 +974,12 @@ class MockOrdersRepository implements OrdersRepository {
   // 7. ЧАТ
   // ───────────────────────────────────────────────────────────
 
-  void _appendChat(String orderId, String text, {UserRole role = UserRole.dispatcher}) {
+  void _appendChat(
+    String orderId,
+    String text, {
+    UserRole role = UserRole.dispatcher,
+    String? attachmentUrl,
+  }) {
     final list = _chats.putIfAbsent(orderId, () => []);
     list.add(ChatMessage(
       id: 'm-${list.length + 1}',
@@ -985,6 +990,7 @@ class MockOrdersRepository implements OrdersRepository {
       text: text,
       sentAt: _now(),
       isMine: role == UserRole.porter,
+      attachmentUrl: attachmentUrl,
     ));
     final c = _chat[orderId];
     if (c != null && !c.isClosed) c.add(List.of(list));
@@ -998,12 +1004,17 @@ class MockOrdersRepository implements OrdersRepository {
   }
 
   @override
-  Future<void> sendOrderChatMessage({required String orderId, required String text}) =>
+  Future<void> sendOrderChatMessage({
+    required String orderId,
+    required String text,
+    String? attachmentUrl,
+  }) =>
       _guard(() async {
-        if (text.trim().isEmpty) {
+        if (text.trim().isEmpty && attachmentUrl == null) {
           throw Failures.validation('text', 'Пустое сообщение.');
         }
-        _appendChat(orderId, text.trim(), role: UserRole.porter);
+        _appendChat(orderId, text.trim(), role: UserRole.porter,
+            attachmentUrl: attachmentUrl);
       }, errorEveryN: 0);
 
   // ───────────────────────────────────────────────────────────

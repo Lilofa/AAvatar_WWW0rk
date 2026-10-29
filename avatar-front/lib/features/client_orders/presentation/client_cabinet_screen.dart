@@ -1,12 +1,10 @@
-/// ВРЕМЕННЫЙ ЭКРАН «МОИ ЗАКАЗЫ» ЗАКАЗЧИКА (зона Артёма, до кабинета Коли).
+/// КАБИНЕТ ПОЛЬЗОВАТЕЛЯ (замена tmp-экрана «Мои заказы», зона Артёма, v2).
 ///
-/// 🔴 Баг-репорт начальника 25.09: интерфейс должен понимать, кто в системе,
-/// и не смешивать роли. Поэтому экран разделён:
-///   1. «Мои заявки (как заказчик)» — где я client_id; завершённые можно
-///      оценить, ЕСЛИ я не работал в этом заказе грузчиком;
-///   2. «Моя работа (как грузчик)» — завершённые заказы, где я в бригаде
-///      и заказчик — не я; оценки там нет по определению.
-/// Состояния: loading / empty / error / data.
+/// Шапка профиля (имя, телефон маской, роли, рейтинг грузчика) + две секции:
+/// «Мои заказы (как заказчик)» и «Моя работа (как грузчик)» с правилами:
+/// завершённый заказ клиента можно оценить, ТОЛЬКО если я не работал
+/// в его бригаде (баг-репорт 25.09). FAB создания заявки остаётся.
+/// Состояния: loading / data / empty / error (+ retry).
 library;
 
 import 'dart:async';
@@ -16,31 +14,34 @@ import 'package:flutter/material.dart';
 import '../../../core/error/app_failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/orders_repository.dart';
+import '../../../data/supabase/mappers.dart';
 import '../../create_order/presentation/create_order_screen.dart';
 import '../../order_active/presentation/order_active_screen.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
 import '../../order_review/presentation/order_review_screen.dart';
 
-class TmpClientOrdersScreen extends StatefulWidget {
-  const TmpClientOrdersScreen({super.key, required this.repository});
+class ClientCabinetScreen extends StatefulWidget {
+  const ClientCabinetScreen({super.key, required this.repository});
 
   final OrdersRepository repository;
 
   @override
-  State<TmpClientOrdersScreen> createState() => _TmpClientOrdersScreenState();
+  State<ClientCabinetScreen> createState() => _ClientCabinetScreenState();
 }
 
-class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
-  StreamSubscription<List<Order>>? _sub;
+class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
+  UserProfile? _profile;
+  PorterProfile? _porter;
   List<Order>? _orders;
   List<Order> _work = const [];
   AppFailure? _error;
+  StreamSubscription<List<Order>>? _sub;
 
   @override
   void initState() {
     super.initState();
-    _listen();
+    _load();
   }
 
   @override
@@ -49,46 +50,47 @@ class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
     super.dispose();
   }
 
-  Future<void> _loadWork() async {
+  Future<void> _load() async {
     try {
-      final list = await widget.repository.myWorkOrders();
-      if (mounted) {
-        setState(() => _work = list
-            .where((o) => !o.clientIsMe && o.status == OrderStatus.completed)
-            .toList());
+      final profile = await widget.repository.watchCurrentUser().first;
+      if (!mounted) return;
+      PorterProfile? porter;
+      if (profile != null && profile.isPorter) {
+        porter = await widget.repository
+            .getPorterProfile(userId: profile.id);
       }
-    } on AppFailure {
-      // секция работы не критична: молча остаётся пустой
+      final work = await widget.repository.myWorkOrders();
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _porter = porter;
+        _work = work
+            .where((o) => !o.clientIsMe && o.status == OrderStatus.completed)
+            .toList();
+      });
+      _sub?.cancel();
+      _sub = widget.repository.watchMyClientOrders().listen(
+        (list) {
+          if (mounted) setState(() => _orders = list);
+        },
+        onError: (Object e) {
+          if (mounted) {
+            setState(
+                () => _error = e is AppFailure ? e : Failures.unknown(e));
+          }
+        },
+      );
+    } on AppFailure catch (f) {
+      if (mounted) setState(() => _error = f);
     }
-  }
-
-  void _listen() {
-    _sub?.cancel();
-    _loadWork();
-    _sub = widget.repository.watchMyClientOrders().listen(
-      (list) {
-        if (mounted) setState(() => _orders = list);
-      },
-      onError: (Object e) {
-        if (mounted) {
-          setState(() => _error = e is AppFailure ? e : Failures.unknown(e));
-        }
-      },
-    );
   }
 
   Set<String> get _workIds => _work.map((o) => o.id).toSet();
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Мои заказы'),
-          backgroundColor: AppColors.brandBlue,
-          foregroundColor: Colors.white,
-        ),
+        appBar: AppBar(title: const Text('Кабинет')),
         body: _body(),
-        // ВРЕМЕННО (неделя 3): FAB создания заявки живёт здесь,
-        // затем переедет в кабинет заказчика Коли.
         floatingActionButton: FloatingActionButton(
           key: const Key('client_create_fab'),
           heroTag: 'client_create_fab',
@@ -106,16 +108,16 @@ class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
     if (_error != null) {
       return Center(
         child: Column(
-          key: const Key('client_orders_error'),
+          key: const Key('cab_error'),
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!.message, textAlign: TextAlign.center),
             const SizedBox(height: 12),
             FilledButton(
-              key: const Key('client_orders_retry'),
+              key: const Key('cab_retry'),
               onPressed: () {
                 setState(() => _error = null);
-                _listen();
+                _load();
               },
               child: const Text('Повторить'),
             ),
@@ -123,17 +125,18 @@ class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
         ),
       );
     }
+    final profile = _profile;
     final orders = _orders;
-    if (orders == null) {
+    if (profile == null || orders == null) {
       return const Center(
-        child: CircularProgressIndicator(key: Key('client_orders_loading')),
+        child: CircularProgressIndicator(key: Key('cab_loading')),
       );
     }
     if (orders.isEmpty && _work.isEmpty) {
       return const Center(
         child: Text(
-          key: Key('client_orders_empty'),
-          'У вас пока нет заказов.\nСоздайте первый — и он появится здесь.',
+          key: Key('cab_empty'),
+          'Пока пусто.\nСоздайте первую заявку кнопкой «+».',
           textAlign: TextAlign.center,
         ),
       );
@@ -142,17 +145,17 @@ class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
       key: const Key('client_orders_list'),
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Мои заявки (как заказчик)',
+        _header(profile),
+        const SizedBox(height: 20),
+        const Text('Мои заказы (как заказчик)',
+            key: Key('cab_client_section'),
             style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
-        if (orders.isEmpty)
-          const Text('Заявок пока нет.')
-        else
-          for (final o in orders) _clientCard(o),
+        for (final o in orders) _clientCard(o),
         if (_work.isNotEmpty) ...[
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           const Text('Моя работа (как грузчик)',
-              key: Key('client_work_section'),
+              key: Key('cab_work_section'),
               style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           for (final o in _work) _workCard(o),
@@ -160,6 +163,66 @@ class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
       ],
     );
   }
+
+  Widget _header(UserProfile p) {
+    final initials = p.name.trim().isEmpty
+        ? 'А'
+        : p.name.trim()[0].toUpperCase();
+    return Card(
+      key: const Key('cab_profile'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: AppColors.brandBlue,
+              child: Text(initials,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p.name,
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w700)),
+                  Text(maskPhone(p.phone),
+                      style: TextStyle(color: Colors.grey.shade600)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      for (final r in p.roles) _roleChip(r),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    }
+
+  Widget _roleChip(UserRole r) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: AppColors.brandYellow.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          switch (r) {
+            UserRole.porter => 'грузчик',
+            UserRole.client => 'заказчик',
+            UserRole.dispatcher => 'диспетчер',
+            UserRole.admin => 'админ',
+          },
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      );
 
   Widget _clientCard(Order o) {
     final worked = _workIds.contains(o.id);
@@ -206,10 +269,16 @@ class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         child: ListTile(
           key: const Key('client_work_card'),
-          leading: const Icon(Icons.handyman_outlined, color: AppColors.warning),
+          leading:
+              const Icon(Icons.handyman_outlined, color: AppColors.warning),
           title: Text(o.taskTitle),
           subtitle: Text('${o.address}\n${_dt(o.timeStart)} · выполнен'),
           isThreeLine: true,
+          trailing: _porter == null
+              ? null
+              : Text('★ ${_porter!.rating}',
+                  key: const Key('cab_rating'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => OrderActiveScreen(
               repository: widget.repository,
@@ -219,7 +288,6 @@ class _TmpClientOrdersScreenState extends State<TmpClientOrdersScreen> {
         ),
       );
 
-  /// 24-часовой формат, баг-репорт 25.09.
   String _dt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')} '
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';

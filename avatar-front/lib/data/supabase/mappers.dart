@@ -327,6 +327,7 @@ ChatMessage messageFromRow(
       authorName: authorName,
       authorRole: authorRole,
       isMine: _str(row['author_id']) == myId,
+      attachmentUrl: _str(row['attachment_url']),
     );
 
 PorterLocation locationFromRow(Map<String, dynamic> row, {String? porterName}) =>

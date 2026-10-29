@@ -17,6 +17,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/home_shell.dart';
 import 'core/theme/app_theme.dart';
+import 'features/splash/presentation/splash_screen.dart';
 import 'data/mock_orders_repository.dart';
 import 'data/orders_repository.dart';
 import 'data/supabase/supabase_orders_repository.dart';
@@ -26,14 +27,20 @@ import 'features/order_active/presentation/order_active_screen.dart';
 const String _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const String _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-Future<void> main() async {
+/// Точка входа БЕЗ мониторинга (тесты, mock-стенд, dev).
+/// Прод с Sentry собирается через main_sentry.dart:
+///   flutter build apk -t lib/main_sentry.dart --dart-define=SENTRY_DSN=...
+Future<void> main() async => runApp(await buildApp());
+
+/// Сборка приложения с выбором репозитория (mock vs Supabase).
+Future<Widget> buildApp() async {
   OrdersRepository repository = MockOrdersRepository();
   if (_supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty) {
     WidgetsFlutterBinding.ensureInitialized();
     await Supabase.initialize(url: _supabaseUrl, publishableKey: _supabaseAnonKey);
     repository = SupabaseOrdersRepository(Supabase.instance.client);
   }
-  runApp(AvatarApp(repository: repository));
+  return AvatarApp(repository: repository);
 }
 
 class AvatarApp extends StatelessWidget {
@@ -54,7 +61,9 @@ class AvatarApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: AppTheme.light(),
-        home: AuthGate(repository: repository),
+        home: const bool.fromEnvironment('dart.vm.product')
+            ? SplashGate(child: AuthGate(repository: repository))
+            : AuthGate(repository: repository),
         onGenerateRoute: (settings) {
           final uri = settings.name ?? '';
           if (uri.startsWith('/order/')) {

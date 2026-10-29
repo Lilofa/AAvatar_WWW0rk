@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/mock_orders_repository.dart';
 import '../../data/orders_repository.dart';
-import '../features/client_orders/presentation/tmp_client_orders_screen.dart';
+import '../features/client_orders/presentation/client_cabinet_screen.dart';
 import '../features/dispatcher/presentation/dispatcher_screen.dart';
 import '../features/order_feed/presentation/order_feed_screen.dart';
 import '../features/order_flow/domain/enums.dart';
@@ -82,7 +82,7 @@ class _ShellState extends State<_Shell> {
         _Tab(
           'Мои заказы',
           Icons.receipt_long_outlined,
-          TmpClientOrdersScreen(
+          ClientCabinetScreen(
             key: const Key('shell_client'),
             repository: widget.repository,
           ),

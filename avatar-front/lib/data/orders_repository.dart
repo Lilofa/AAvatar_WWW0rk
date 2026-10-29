@@ -145,7 +145,15 @@ abstract interface class OrdersRepository {
 
   // ── 7. ЧАТ ПО ЗАКАЗУ ──────────────────────────────────────
   Stream<List<ChatMessage>> watchOrderChat({required String orderId, int limit = 50});
-  Future<void> sendOrderChatMessage({required String orderId, required String text});
+
+  /// [attachmentUrl] — публичная ссылка на фото из бакета 'orders'
+  /// (uploadOrderPhoto). Бэк: колонка messages.attachment_url (миграция
+  /// 20260930120000, предложил агент, применяет Матвей).
+  Future<void> sendOrderChatMessage({
+    required String orderId,
+    required String text,
+    String? attachmentUrl,
+  });
 
   // ── 8. ЗАКАЗЧИК: СОЗДАНИЕ ЗАЯВКИ ──────────────────────────
   Future<Order> createOrder(CreateOrderRequest request);
