@@ -2,7 +2,7 @@
 library;
 
 import 'package:avatar_app/data/mock_orders_repository.dart';
-import 'package:avatar_app/features/client_orders/presentation/tmp_client_orders_screen.dart';
+import 'package:avatar_app/features/client_orders/presentation/client_cabinet_screen.dart';
 import 'package:avatar_app/features/create_order/presentation/create_order_screen.dart';
 import 'package:avatar_app/features/order_feed/presentation/order_feed_screen.dart';
 import 'package:avatar_app/features/order_response/presentation/respond_dialog.dart';
@@ -153,7 +153,7 @@ void main() {
     testWidgets('FAB «Создать заявку» есть в «Моих заказах» и открывает визард',
         (tester) async {
       await tester.pumpWidget(MaterialApp(
-        home: TmpClientOrdersScreen(repository: MockOrdersRepository()),
+        home: ClientCabinetScreen(repository: MockOrdersRepository()),
       ));
       await settle(tester);
       await tester.tap(find.byKey(const Key('client_create_fab')));
