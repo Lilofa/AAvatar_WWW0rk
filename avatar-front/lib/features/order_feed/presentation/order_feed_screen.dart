@@ -30,11 +30,19 @@ class OrderFeedScreen extends StatefulWidget {
     super.key,
     required this.repository,
     this.onOpenOrder,
+    this.onOpenMyClientOrders,
+    this.onRespond,
     this.showMockSwitch = false,
   });
 
   final OrdersRepository repository;
   final void Function(String orderId)? onOpenOrder;
+
+  /// ВРЕМЕННО (до роутинга Коли, неделя 3): вход в «Мои заказы» для заказчика.
+  final VoidCallback? onOpenMyClientOrders;
+
+  /// Отклик с ETA (MVP): диалог открывает вызывающая сторона (main).
+  final void Function(Order order)? onRespond;
 
   /// Debug-меню переключения 4 состояний (для ревью Коли и QA).
   final bool showMockSwitch;
@@ -44,9 +52,10 @@ class OrderFeedScreen extends StatefulWidget {
 }
 
 class _OrderFeedScreenState extends State<OrderFeedScreen> {
-  StreamSubscription<List<Order>>? _sub;
+  StreamSubscription<FeedPage>? _sub;
   FeedView _view = FeedView.loading;
   List<Order> _orders = const [];
+  FeedEmptyReason _emptyReason = FeedEmptyReason.noOrders;
   AppFailure? _failure;
 
   @override
@@ -70,11 +79,12 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
 
     // watchFeed отдаёт первый кадр сам; ошибки прихода ловим здесь.
     _sub = widget.repository.watchFeed().subscribeSafe(
-          onData: (orders) {
+          onData: (page) {
             if (!mounted) return;
             setState(() {
-              _orders = orders;
-              _view = orders.isEmpty ? FeedView.empty : FeedView.data;
+              _orders = page.items;
+              _emptyReason = page.emptyReason;
+              _view = page.isEmpty ? FeedView.empty : FeedView.data;
             });
           },
           onError: (Object e) {
@@ -95,10 +105,21 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
         title: const Text('Доступные заказы'),
         // Debug-переключатель сознательно НЕ в appBar: в web-дебаге правый верхний
         // угол занимает красная лента DEBUG и перехватывает тапы.
-        actions: const [],
+        actions: [
+          if (widget.onOpenMyClientOrders != null)
+            IconButton(
+              key: const Key('feed_my_client_orders'),
+              tooltip: 'Мои заказы',
+              icon: const Icon(Icons.receipt_long),
+              onPressed: widget.onOpenMyClientOrders,
+            ),
+        ],
       ),
       floatingActionButton: widget.showMockSwitch
           ? FloatingActionButton(
+              // IndexedStack держит все вкладки живыми: hero-теги FAB'ов
+              // обязаны быть уникальными, иначе падение на переходе роута.
+              heroTag: 'feed_debug_fab',
               tooltip: 'Состояния (debug)',
               backgroundColor: const Color(0xFF1D5BA6), // бренд-синий из брендбука
               foregroundColor: Colors.white,
@@ -109,8 +130,17 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
       body: switch (_view) {
         FeedView.loading => const TmpShimmerList(),
         FeedView.empty => TmpEmpty(
-            title: 'Заказов сейчас нет',
-            body: 'Новые заявки появятся здесь. Загляните позже.',
+            // Матвей, блок 2: три разные причины пустоты → три разных текста.
+            title: switch (_emptyReason) {
+              FeedEmptyReason.noOrders => 'Заказов сейчас нет',
+              FeedEmptyReason.filteredOut => 'Под фильтр ничего не подошло',
+              FeedEmptyReason.allTaken => 'Все заказы разобраны',
+            },
+            body: switch (_emptyReason) {
+              FeedEmptyReason.noOrders => 'Новые заявки появятся здесь. Загляните позже.',
+              FeedEmptyReason.filteredOut => 'Попробуйте сбросить фильтры или подождать новые заявки.',
+              FeedEmptyReason.allTaken => 'Открытые заявки закончились — обновите через минуту.',
+            },
             onRetry: _subscribe,
           ),
         FeedView.error => TmpError(
@@ -126,8 +156,12 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
               itemBuilder: (context, i) {
                 final o = _orders[i];
                 return TmpOrderCard(
+                  key: Key('feed_card_${o.id}'),
                   order: o,
                   onTap: () => widget.onOpenOrder?.call(o.id),
+                  onRespond: widget.onRespond == null
+                      ? null
+                      : () => widget.onRespond!(o),
                 );
               },
             ),
@@ -179,24 +213,32 @@ extension _SafeSubscribe<T> on Stream<T> {
 }
 
 class TmpOrderCard extends StatelessWidget {
-  const TmpOrderCard({super.key, required this.order, this.onTap});
+  const TmpOrderCard({super.key, required this.order, this.onTap, this.onRespond});
 
   final Order order;
   final VoidCallback? onTap;
 
+  /// Кнопка «Откликнуться» (рисует только лента, если передан колбэк).
+  final VoidCallback? onRespond;
+
   /// Дедлайн взятия заказа: immediate — час от создания, текущий — три часа.
+  /// 🔴 Баг-репорт 25.09 («баг с временем»): дедлайн не может быть позже
+  /// начала работ — ограничиваем сверху timeStart и не рисуем просроченный.
   DateTime? get _takeDeadline {
     final base = order.createdAt ?? order.timeStart.subtract(const Duration(hours: 1));
+    final DateTime window;
     switch (order.urgency) {
       case OrderUrgency.urgent:
       case OrderUrgency.replacement:
-        return base.add(const Duration(hours: 1));
+        window = base.add(const Duration(hours: 1));
       case OrderUrgency.current:
-        return base.add(const Duration(hours: 3));
+        window = base.add(const Duration(hours: 3));
       case OrderUrgency.preliminary:
       case OrderUrgency.advance:
         return null;
     }
+    final capped = window.isAfter(order.timeStart) ? order.timeStart : window;
+    return capped.isAfter(DateTime.now()) ? capped : null;
   }
 
   /// «19:37», если сегодня; иначе полная метка. Без слова «дедлайн»:
@@ -262,6 +304,46 @@ class TmpOrderCard extends StatelessWidget {
               if (order.porterTariffHint != null) ...[
                 const SizedBox(height: 6),
                 Text(order.porterTariffHint!, style: _meta),
+              ],
+              // Матвей, блок 2: кнопка/статус зависят от my_response_status.
+              if (order.myResponseStatus != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  key: const Key('feed_my_response_chip'),
+                  switch (order.myResponseStatus!) {
+                    ResponseStatus.pending => '⏳ Отклик отправлен, ждём одобрения диспетчера',
+                    ResponseStatus.declined => '❌ Отклик отклонён — можно откликнуться снова',
+                    ResponseStatus.approved => '✅ Вы в бригаде, заказ в «Моих»',
+                    ResponseStatus.expired => '⌛ Отклик истёк — можно откликнуться снова',
+                  },
+                  style: _meta.copyWith(
+                    color: order.myResponseStatus == ResponseStatus.pending
+                        ? const Color(0xFFB26A00)
+                        : order.myResponseStatus == ResponseStatus.declined ||
+                                order.myResponseStatus == ResponseStatus.expired
+                            ? const Color(0xFFC62828)
+                            : const Color(0xFF2E7D32),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              // MVP «отклик + одобрение»: откликнуться можно, пока заказ открыт
+              // и моего живого отклика нет (null / отклонён / истёк).
+              if (onRespond != null &&
+                  order.isOpenForResponse &&
+                  !order.clientIsMe &&
+                  (order.myResponseStatus == null ||
+                      order.myResponseStatus == ResponseStatus.declined ||
+                      order.myResponseStatus == ResponseStatus.expired)) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    key: const Key('feed_respond_btn'),
+                    onPressed: onRespond,
+                    child: const Text('Откликнуться · указать ETA'),
+                  ),
+                ),
               ],
             ],
           ),

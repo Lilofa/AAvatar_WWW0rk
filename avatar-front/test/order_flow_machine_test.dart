@@ -89,9 +89,14 @@ void main() {
       expect(morningOrder.departedDeadline, DateTime(2026, 9, 11, 6, 30));
     });
 
-    test('у НЕутреннего заказа дедлайнов нет', () {
-      expect(dayOrder.wokeDeadline, isNull);
-      expect(dayOrder.departedDeadline, isNull);
+    test('НЕутренний заказ: дедлайны считаются (SQL), но woke недоступен', () {
+      // 🔴 get_stage_availability Матвея считает дедлайны для всех заказов;
+      // утренность ограничивает только доступность этапа woke.
+      expect(dayOrder.departedDeadline, DateTime(2026, 9, 11, 13, 30));
+      expect(dayOrder.wokeDeadline, DateTime(2026, 9, 11, 13, 0));
+      final dd = d(stage: OrderStageType.woke, order: dayOrder);
+      expect(dd.allowed, isFalse);
+      if (!dd.allowed) expect(dd.blockReason, StageBlockReason.notMorningOrder);
     });
 
     test('woke разрешён до дедлайна и БЕЗ штрафа', () {
@@ -102,13 +107,11 @@ void main() {
       expect(r.warning, isNull);
     });
 
-    test('woke после дедлайна: разрешён, но штраф −5 и предупреждение', () {
+    test('woke после дедлайна: разрешён, штраф ПРИ НАЖАТИИ = 0 (SQL), предупреждение есть', () {
       final r = d(order: morningOrder, stage: OrderStageType.woke, at: DateTime(2026, 9, 11, 6, 10));
       expect(r.allowed, isTrue);
-      expect(r.late, isTrue);
-      expect(r.penalty, BizRules.morningLatePenalty);
-      expect(r.penalty, 5);
-      expect(r.warning!.toLowerCase(), contains('штраф'));
+      expect(r.penalty, 0, reason: '−5 на woke прилетает событием триггера, не при нажатии');
+      expect(r.warning, contains('событием'));
       expect(r.warning, contains('−5'));
     });
 
@@ -118,6 +121,15 @@ void main() {
       expect(r.penalty, 0, reason: 'штрафа ещё нет');
       expect(r.warning, isNotNull, reason: 'но предупредить обязаны');
       expect(r.warning, contains('осталось'));
+    });
+
+    test('🔴 SQL: поздний departed штрафует и НА ДНЕВНОМ заказе (обобщение Матвея)', () {
+      final r = d(stage: OrderStageType.departed, order: dayOrder, at: DateTime(2026, 9, 11, 13, 40));
+      expect(r.allowed, isTrue);
+      if (r.allowed) {
+        expect(r.penalty, 5, reason: 'дедлайн departed = time_start − 30 мин для всех заказов');
+        expect(r.late, isTrue);
+      }
     });
 
     test('departed штрафует после своего дедлайна (30 мин до начала)', () {
@@ -292,7 +304,7 @@ void main() {
 
     test('таймаут = 5 минут', () {
       expect(BizRules.feedbackTimeout, const Duration(minutes: 5));
-      expect(BizRules.etaApprovalTimeout, const Duration(minutes: 5));
+      expect(BizRules.etaApprovalTimeout, const Duration(minutes: 15)); // Матвей 12.09
       expect(BizRules.leadTimeout, const Duration(minutes: 5));
     });
   });
@@ -517,7 +529,7 @@ void main() {
       expect(OrderStatus.fromWire('cancelled'), OrderStatus.cancelled);
       expect(OrderStatus.fromWire('что-то неведомое'), OrderStatus.new_);
       expect(OrderStatus.inProgress.wire, 'in_progress');
-      expect(OrderStatus.new_.wire, 'new');
+      expect(OrderStatus.new_.wire, 'created'); // 🔴 имя в БД
     });
 
     test('срочность парсится из русских названий колонок таблицы', () {
@@ -527,6 +539,39 @@ void main() {
       expect(OrderUrgency.fromWire('Предварительный'), OrderUrgency.preliminary);
       expect(OrderUrgency.fromWire('Предварительный Новый'), OrderUrgency.advance);
       expect(OrderUrgency.fromWire('Заранее'), OrderUrgency.advance);
+    });
+
+    group('🔴 wire-значения БД Матвея (сторожа миграции)', () {
+      test('статусы: created / accepted / in_progress / completed / cancelled', () {
+        expect(OrderStatus.new_.wire, 'created');
+        expect(OrderStatus.approved.wire, 'accepted');
+        expect(OrderStatus.fromWire('created'), OrderStatus.new_);
+        expect(OrderStatus.fromWire('accepted'), OrderStatus.approved);
+        // легаси-алиасы из брифа тоже парсятся
+        expect(OrderStatus.fromWire('new'), OrderStatus.new_);
+        expect(OrderStatus.fromWire('approved'), OrderStatus.approved);
+      });
+
+      test('срочность: urgent / current / pre / ahead; замена = флаг', () {
+        expect(OrderUrgency.urgent.wire, 'urgent');
+        expect(OrderUrgency.current.wire, 'current');
+        expect(OrderUrgency.preliminary.wire, 'pre');
+        expect(OrderUrgency.advance.wire, 'ahead');
+        expect(OrderUrgency.replacement.wire, 'urgent',
+            reason: 'замена в БД — флаг is_replacement, срочность urgent');
+        expect(OrderUrgency.fromWire('pre'), OrderUrgency.preliminary);
+        expect(OrderUrgency.fromWire('ahead'), OrderUrgency.advance);
+        expect(OrderUrgency.fromWire('urgent', isReplacement: true), OrderUrgency.replacement);
+        expect(OrderUrgency.fromWire('urgent'), OrderUrgency.urgent);
+      });
+
+      test('транспорт: none / gazelle / truck', () {
+        expect(TransportType.gazelle.wire, 'gazelle');
+        expect(TransportType.truck.wire, 'truck');
+        expect(TransportType.fromWire('gazelle'), TransportType.gazelle);
+        expect(TransportType.fromWire(null), TransportType.none);
+        expect(TransportType.fromWire('вернём_пешком'), TransportType.none);
+      });
     });
 
     test('🔴 грабля №7: статусы рефералов сравниваются БЕЗ ё', () {

@@ -9,7 +9,7 @@
 name: avatar_app
 description: Аватар — услуги грузчиков. Сквозной поток заказа (зона Артёма).
 publish_to: "none"
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -18,12 +18,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  supabase_flutter: ^2.8.0
+  image_picker: ^1.1.2
+  sentry_flutter: ^8.14.0
   # Стиль работы с Riverpod фиксирует Коля — пока не добавляю,
   # чтобы не разошлись версии. См. REQUEST_to_Kolya.md, раздел 4.
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  image_picker_platform_interface: ^2.10.0
   flutter_lints: ^4.0.0
 
 flutter:

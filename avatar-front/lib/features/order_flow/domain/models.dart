@@ -54,7 +54,7 @@ class Order {
     required this.taskTitle,
     required this.taskDescription,
     this.entrance,
-    this.transport,
+    this.transport = TransportType.none,
     this.clientPhone,
     this.extraComments,
     this.clientTariffHint,
@@ -62,8 +62,11 @@ class Order {
     this.resultComment,
     this.coords,
     this.createdAt,
+    this.myResponseStatus,
+    this.feedbackMissed = false,
     this.forceClosed = false,
     this.isReplacement = false,
+    this.clientIsMe = false,
   });
 
   final String id;
@@ -85,7 +88,7 @@ class Order {
   /// Скрывается на бэке (RLS), здесь поле просто null. Не скрывать на клиенте!
   final String? entrance;
 
-  final String? transport;
+  final TransportType transport;
   final String? clientPhone;
   final String? extraComments;
 
@@ -99,9 +102,18 @@ class Order {
   final GeoPoint? coords;
   final DateTime? createdAt;
 
+  /// Мой отклик на этот заказ в ленте (Матвей, блок 2): null/pending/approved/declined.
+  final ResponseStatus? myResponseStatus;
+
+  /// Обратная связь старшего не сдана в срок (feedback_timeout).
+  final bool feedbackMissed;
+
   /// Заказ закрыт принудительно диспетчером.
   final bool forceClosed;
   final bool isReplacement;
+
+  /// Я — заказчик этого заказа (нельзя откликаться на свою заявку).
+  final bool clientIsMe;
 
   bool get isMorning => BizRules.isMorningOrder(timeStart);
 
@@ -114,9 +126,11 @@ class Order {
 
   DateTime get overtimeAt => BizRules.overtimeAt(timeStart, plannedDurationMin);
 
-  DateTime? get wokeDeadline => BizRules.wokeDeadline(timeStart);
+  /// 🔴 SQL Матвея: дедлайны считаются для ВСЕХ заказов (time_start − 1 ч / − 30 мин);
+  /// утренность ограничивает только доступность этапа woke.
+  DateTime? get wokeDeadline => timeStart.subtract(BizRules.wokeLeadTime);
 
-  DateTime? get departedDeadline => BizRules.departedDeadline(timeStart);
+  DateTime? get departedDeadline => timeStart.subtract(BizRules.departedLeadTime);
 
   /// Можно ли ещё откликнуться.
   bool get isOpenForResponse => status == OrderStatus.new_;
@@ -140,6 +154,7 @@ class OrderResponse {
     this.decidedAt,
     this.decidedBy,
     this.declineReason,
+    this.porterName,
   });
 
   final String id;
@@ -151,6 +166,9 @@ class OrderResponse {
   final DateTime? decidedAt;
   final String? decidedBy;
   final String? declineReason;
+
+  /// Имя грузчика (диспетчерский пульт; join profiles).
+  final String? porterName;
 
   /// Момент автоотклонения, если диспетчер не решил.
   DateTime get expiresAt =>
@@ -285,7 +303,7 @@ class OrderCompletion {
   /// Если баланс в MVP — иначе null.
   final double? moneyDelta;
 
-  /// Часы поправлены диспетчером вручную.
+  /// Часы поправлены диспетчером вручную (orders.minutes_adjusted_by_admin).
   final bool adjustedByDispatcher;
 }
 
@@ -333,6 +351,7 @@ class PorterProfile {
 
   /// Сколько раз провалил утренний дедлайн / не вышел.
   final int failCount;
+  /// 🔴 MVP: всегда 0.00 (решение Матвея: денег в MVP нет). Экран баланса не рисуем.
   final double balance;
   final bool isActive;
   final String? referralCode;
@@ -351,7 +370,7 @@ class CreateOrderRequest {
     required this.urgency,
     required this.tariff,
     this.entrance,
-    this.transport,
+    this.transport = TransportType.none,
     this.phone,
     this.extraComments,
     this.coords,
@@ -366,7 +385,7 @@ class CreateOrderRequest {
   final OrderUrgency urgency;
   final String tariff;
   final String? entrance;
-  final String? transport;
+  final TransportType transport;
   final String? phone;
   final String? extraComments;
   final GeoPoint? coords;

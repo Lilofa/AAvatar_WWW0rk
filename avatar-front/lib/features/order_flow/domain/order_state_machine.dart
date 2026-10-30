@@ -148,8 +148,14 @@ abstract final class OrderFlowMachine {
         _ => null,
       };
 
-  /// Штраф за нажатие этапа сейчас (−5 за пропущенный утренний дедлайн).
+  /// Штраф за нажатие этапа сейчас.
+  /// 🔴 По SQL Матвея (get_stage_availability → penalty_if_pressed_now):
+  /// штраф −5 начисляется только на этапе `departed` после его дедлайна.
+  /// На `woke` штрафа при нажатии НЕТ: пропуск утреннего «Проснулся» обрабатывает
+  /// триггер событием stage_deadline_missed (−5) и возвратом заказа в ленту —
+  /// см. morningFailure() и OPEN QUESTION к Матвею про triggers_contract.
   static int penaltyFor(OrderStageType stage, Order order, DateTime now) {
+    if (stage != OrderStageType.departed) return 0;
     final dl = deadlineFor(stage, order);
     if (dl == null) return 0;
     return now.isAfter(dl) ? BizRules.morningLatePenalty : 0;
@@ -166,14 +172,21 @@ abstract final class OrderFlowMachine {
 
     if (diff.isNegative) {
       final late = -diff;
+      if (stage == OrderStageType.woke) {
+        // По SQL штрафа при нажатии нет: −5 придёт событием триггера.
+        return 'Дедлайн $label пропущен ${_humanize(late)}. '
+            'Штраф −${BizRules.morningLatePenalty} придёт событием, '
+            'заказ может вернуться в ленту.';
+      }
       return 'Дедлайн $label пропущен ${_humanize(late)}. '
-          'Штраф −${BizRules.morningLatePenalty} к рейтингу и +1 к счётчику провалов. '
-          'Заказ может вернуться в ленту.';
+          'Штраф −${BizRules.morningLatePenalty} к рейтингу и +1 к счётчику провалов.';
     }
 
     if (diff <= const Duration(minutes: 15)) {
-      return 'До дедлайна $label осталось ${_humanize(diff)}. '
-          'Если не успеете — штраф −${BizRules.morningLatePenalty}.';
+      final tail = stage == OrderStageType.woke
+          ? 'Если не успеете — штраф −${BizRules.morningLatePenalty} придёт событием.'
+          : 'Если не успеете — штраф −${BizRules.morningLatePenalty}.';
+      return 'До дедлайна $label осталось ${_humanize(diff)}. $tail';
     }
 
     return null;
@@ -317,11 +330,25 @@ abstract final class OrderFlowMachine {
     return now.isBefore(created.add(dl));
   }
 
+  /// 🔴 Матвей 12.09: срочный заказ, у которого `departed` не нажат дольше
+  /// [BizRules.urgentDepartedCancelGrace] после начала работ, бэкенд отменяет
+  /// (событие order_cancelled, reason deadline).
+  /// ⚠️ OPEN QUESTION: для несрочных и для «departed до начала» дедлайнов у Матвея
+  /// правило не прописано — уточнить в следующем пинге. Здесь: immediate-заказы,
+  /// точка отсчёта — время начала работ.
+  static bool urgentDepartedMissCancels(Order order, DateTime now) {
+    if (!order.urgency.isImmediate) return false;
+    final deadline = order.timeStart.add(BizRules.urgentDepartedCancelGrace);
+    return now.isAfter(deadline);
+  }
+
   /// Рейтинг за завершение: +2 старшему, +1 остальным.
   static int ratingForCompletion({required bool isLead}) =>
       isLead ? BizRules.ratingOnCompleteLead : BizRules.ratingOnComplete;
 
-  /// Итог штрафа за утренний провал: рейтинг −5, fail +1, заказ в ленту.
+  /// Правило бота/триггера: провал утреннего дедлайна → −5, fail +1, заказ в ленту.
+  /// 🔎 OPEN QUESTION: в rpc_contract.sql этого нет на нажатии — ждём triggers_contract.sql,
+  /// пока считаем, что правило живёт в триггере и прилетает событием.
   static ({int ratingDelta, int failDelta, bool returnToFeed}) morningFailure() => (
         ratingDelta: -BizRules.morningLatePenalty,
         failDelta: 1,

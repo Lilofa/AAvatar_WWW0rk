@@ -12,6 +12,8 @@
 /// Документ с вопросами по каждому блоку: `avatar/artem/CONTRACT_methods.md`.
 library;
 
+import 'dart:typed_data';
+
 import '../features/order_flow/domain/enums.dart';
 import '../features/order_flow/domain/models.dart';
 
@@ -29,6 +31,22 @@ class AuthResult {
           : UserRole.porter;
 }
 
+/// Почему лента пуста (Матвей, блок 2: meta.empty_reason) — разные тексты empty-состояния.
+enum FeedEmptyReason {
+  noOrders, // заказов нет вообще
+  filteredOut, // есть, но под мой фильтр ничего не подошло
+  allTaken, // были открытые, но все разобрали
+}
+
+/// Страница ленты: элементы + причина пустоты.
+class FeedPage {
+  const FeedPage({required this.items, required this.emptyReason});
+  final List<Order> items;
+  final FeedEmptyReason emptyReason;
+
+  bool get isEmpty => items.isEmpty;
+}
+
 /// Фильтр ленты.
 class FeedFilter {
   const FeedFilter({this.urgencies, this.dateFrom, this.dateTo, this.onlyMine = false});
@@ -43,17 +61,49 @@ class FeedFilter {
   static const all = FeedFilter();
 }
 
+/// Реферальная информация пользователя (v2, зеркало бота «Бонусная система»).
+class ReferralEntry {
+  const ReferralEntry({
+    required this.name,
+    required this.phoneMasked,
+    required this.status,
+    this.joinedAt,
+  });
+  final String name;
+  final String phoneMasked;
+  final ReferralStatus status;
+  final DateTime? joinedAt;
+}
+
+class ReferralInfo {
+  const ReferralInfo({
+    required this.code,
+    required this.invited,
+  });
+  final String? code;
+  final List<ReferralEntry> invited;
+  int get count => invited.length;
+}
+
 /// Один контракт на все методы потока. Ошибки — только [AppFailure].
 abstract interface class OrdersRepository {
   // ── 1. АВТОРИЗАЦИЯ И ПРОФИЛЬ ──────────────────────────────
   Future<void> sendSmsCode({required String phone});
-  Future<AuthResult> verifySmsCode({required String phone, required String code});
+
+  /// [role] и [fullName] используются edge-функцией verify-sms только при
+  /// ПЕРВОЙ регистрации пользователя (повторный вход их игнорирует).
+  Future<AuthResult> verifySmsCode({
+    required String phone,
+    required String code,
+    UserRole? role,
+    String? fullName,
+  });
   Stream<UserProfile?> watchCurrentUser();
   Future<PorterProfile> getPorterProfile({required String userId});
   Future<String?> getReferralCode({required String userId});
 
   // ── 2. ЛЕНТА И ОТКЛИК ─────────────────────────────────────
-  Stream<List<Order>> watchFeed({FeedFilter filter = FeedFilter.all, int limit = 30, String? cursor});
+  Stream<FeedPage> watchFeed({FeedFilter filter = FeedFilter.all, int limit = 30, String? cursor});
   Future<Order> getOrder({required String orderId});
   Future<OrderResponse> respondToOrder({required String orderId, required int etaMinutes});
   Future<void> cancelResponse({required String responseId});
@@ -95,7 +145,15 @@ abstract interface class OrdersRepository {
 
   // ── 7. ЧАТ ПО ЗАКАЗУ ──────────────────────────────────────
   Stream<List<ChatMessage>> watchOrderChat({required String orderId, int limit = 50});
-  Future<void> sendOrderChatMessage({required String orderId, required String text});
+
+  /// [attachmentUrl] — публичная ссылка на фото из бакета 'orders'
+  /// (uploadOrderPhoto). Бэк: колонка messages.attachment_url (миграция
+  /// 20260930120000, предложил агент, применяет Матвей).
+  Future<void> sendOrderChatMessage({
+    required String orderId,
+    required String text,
+    String? attachmentUrl,
+  });
 
   // ── 8. ЗАКАЗЧИК: СОЗДАНИЕ ЗАЯВКИ ──────────────────────────
   Future<Order> createOrder(CreateOrderRequest request);
@@ -104,13 +162,22 @@ abstract interface class OrdersRepository {
     required int peopleCount,
     required int plannedDurationMin,
     required OrderUrgency urgency,
-    String? transport,
+    TransportType transport = TransportType.none,
   });
 
   Stream<List<Order>> watchMyClientOrders();
+
+  /// Заказы, где я в бригаде (моя работа грузчиком). Баг-репорт 25.09:
+  /// «Мои заказы» не должны смешиваться с моей работой, и свои же
+  /// выполненные заказы я оценивать не могу.
+  Future<List<Order>> myWorkOrders();
+
   Future<void> cancelOrder({required String orderId, String? reason});
 
-  // ── 9. ДИСПЕТЧЕР (экраны — зона Коли, методы нужны мне для сквозного QA) ──
+  // ── 9. ДИСПЕТЧЕР (экраны — зона Коли → Артём после 20.09) ──
+  /// Живые заказы для пульта диспетчера (created/accepted/in_progress).
+  Stream<List<Order>> watchDispatcherOrders();
+
   Future<List<OrderResponse>> getPendingResponses({required String orderId});
   Future<void> approveResponse({required String responseId});
   Future<void> declineResponse({required String responseId});
@@ -118,6 +185,22 @@ abstract interface class OrdersRepository {
   Future<void> forceCloseOrder({required String orderId, required String comment});
   Future<void> findReplacement({required String orderId});
   Stream<List<PorterLocation>> watchPorterLocations({required String orderId});
+
+  // ── 11. РЕФЕРАЛКА (v2; бэк: profiles.referral_code/invited_by) ──
+  /// Мой код + кого привёл. Статусы засчёта (5 дней в чате) считает бэк;
+  /// пока таблицы referrals нет — все входящие считаются fresh (пинг Матвею).
+  Future<ReferralInfo> getMyReferralInfo();
+
+  /// Сгенерировать код, если его нет (RPC profiles_gen_referral_code).
+  Future<String> ensureReferralCode();
+
+  // ── 10. ФОТО ЗАКАЗА (storage bucket 'orders', миграция 18.09) ──
+  /// Загрузить фото к заказу; возвращает публичный URL для вставки в отзыв/чат.
+  Future<String> uploadOrderPhoto({
+    required String orderId,
+    required Uint8List bytes,
+    required String fileName,
+  });
 }
 
 /// Минимальный профиль текущего пользователя (core-слой, не мой).

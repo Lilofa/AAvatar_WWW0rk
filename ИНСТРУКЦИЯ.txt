@@ -1,0 +1,67 @@
+АВАТАР — СЛОЙ ДАННЫХ SUPABASE (патч от агента, 20.09.2026)
+==========================================================
+
+ЧТО ВНУТРИ (пути относительно корня репо — распаковывать В КОРЕНЬ,
+например в D:\dev\projects\avatar-repo, с заменой файлов):
+
+  avatar-front/lib/data/orders_repository.dart          ИЗМЕНЁН (+uploadOrderPhoto)
+  avatar-front/lib/data/mock_orders_repository.dart     ИЗМЕНЁН (+заглушка фото)
+  avatar-front/lib/data/supabase/mappers.dart           НОВЫЙ
+  avatar-front/lib/data/supabase/supabase_orders_repository.dart  НОВЫЙ
+  avatar-front/lib/main.dart                            ИЗМЕНЁН (dart-define init)
+  avatar-front/test/mappers_test.dart                   НОВЫЙ (18 тестов)
+
+ПОРЯДОК ДЕЙСТВИЙ
+1. Если ещё не сделал: синхронизация с main + security-патч
+   (git merge origin/main; git am 0001-security-*.patch) и РОТАЦИЯ КЛЮЧЕЙ
+   Supabase + перевод репо в Private. Ротация — раньше всего остального!
+2. Распакуй архив в корень репо с заменой.
+3. cd avatar-front
+   flutter pub get
+   flutter test        -> ждём 108/108 (90 твоих + 18 новых)
+   flutter analyze     -> 0 замечаний
+4. Закоммить:
+   git add -A
+   git commit -m "feat(front): SupabaseOrdersRepository + mappers + dart-define init"
+   git push origin artem/flutter-app
+5. Живой прогон (приёмка с Матвеем по вашим правилам):
+   flutter run --dart-define=SUPABASE_URL=https://<ref>.supabase.co ^
+               --dart-define=SUPABASE_ANON_KEY=<publishable-ключ ПОСЛЕ ротации>
+   Без define приложение стартует на моках, как раньше (showMockSwitch жив).
+
+ЧТО РЕАЛИЗОВАНО (все 27 методов интерфейса OrdersRepository)
+- Auth: send-sms / verify-sms edge + verifyOTP(magiclink, token_hash).
+- Лента: realtime orders (status=created) + фильтры + «Мои» через order_takers,
+  emptyReason (noOrders/filteredOut/allTaken), мои отклики в карточках.
+- Отклик: respond_to_order / cancel_response / watchMyResponse (realtime).
+- Этапы: mark_stage / get_stage_availability / submit_delay_reason + realtime
+  order_stages; штраф из penalty маркерится как ratingDelta<0 и late.
+- Бригада: order_takers realtime, старший (is_lead) с именами из profiles.
+- Закрытие: finish_order -> OrderCompletion; watchOrderStatus realtime.
+- Отзывы: submit_review НОВОЙ сигнатуры (p_order_id, p_rating, p_text,
+  p_target_id=null), getPorterReviews, watchPendingReviewCount.
+- Чат заказа: таблица messages + realtime, isMine по author_id.
+- Заказчик: createOrder (insert), search-address edge, quote_order RPC,
+  watchMyClientOrders, cancelOrder.
+- Диспетчер (для сквозного QA): approve/decline_response, assign_lead,
+  force_close_order, find_replacement, watchPorterLocations.
+- Фото: uploadOrderPhoto в storage-бакет 'orders', возвращает public URL.
+- Ошибки: наружу только AppFailure через твой SupabaseErrorMapper
+  (+FunctionException от edge-функций).
+
+ОТКРЫТЫЕ ВОПРОСЫ МАТВЕЮ (проговорить в чате команды, зона данных — Матвей):
+1. В схеме orders нет колонки-флага force close (forceClosed рисуем false;
+   событие приходит только realtime-каналом). Нужна колонка или флаг в jsonb?
+2. get_stage_availability не отдаёт feedback_deadline (5 мин после finished) —
+   дедлайн обратной связи старшего не рисуется. Добавить ключ в jsonb?
+3. В profiles нет fail_count (провалы утренних дедлайнов) — пока 0.
+4. quote_order возвращает только numeric: breakdown тарифа собран заглушкой
+   (работы + транспорт по тарифу транспорта). Нужна детализация с бэка?
+5. createOrder пишет price=0 (NOT NULL): боевой тариф должен считать бэк
+   через quote_order при создании или диспетчер при одобрении?
+
+ЗАМЕТКИ
+- Время: провод UTC, UI — НСК (UTC+7), конвертация только в mappers.dart.
+- ETA-таймаут одобрения отклика = 15 минут (BizRules.etaApprovalTimeout),
+  pending старше → ResponseStatus.expired на клиенте (в БД статуса нет).
+- Срочность replacement: wire 'urgent' + флаг is_replacement (как у Матвея).
