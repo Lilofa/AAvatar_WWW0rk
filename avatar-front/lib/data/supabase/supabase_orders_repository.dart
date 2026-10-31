@@ -136,10 +136,16 @@ class SupabaseOrdersRepository implements OrdersRepository {
         });
         final tokenHash = data['token_hash'] as String?;
         if (tokenHash == null) throw Failures.unauthorized();
-        // gotrue 2.27: verifyOTP + phone обязателен для magiclink с tokenHash.
+        // ВАЖНО (прод-фикс 31.10): GoTrue на проде (v2.197.0) принимает
+        // ТОЛЬКО {type, token_hash}. Любой третий параметр — 400:
+        //   {"error_code":"validation_failed",
+        //    "msg":"Only the token_hash and type should be provided"}
+        // Поэтому phone сюда НЕ передаём: пользователь в verify-sms создан
+        // по синтетическому email (<номер>@phone.local), а token_hash сам
+        // указывает на пользователя. gotrue 2.27.2 это разрешает: при
+        // tokenHash != null assert про email/phone не срабатывает.
         await _client.auth.verifyOTP(
           type: OtpType.magiclink,
-          phone: phone,
           tokenHash: tokenHash,
         );
         final userId = _client.auth.currentUser?.id ?? data['userId'] as String;

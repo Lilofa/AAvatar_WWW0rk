@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- БЕЗ ЭТОГО RELEASE-СБОРКА НЕ ХОДИТ В СЕТЬ ВООБЩЕ:
+         debug/profile-манифесты INTERNET дают, а main — нет,
+         поэтому на эмуляторе всё работало, а боевой APK ловил
+         «нет соединения» на любом запросе к Supabase. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
-        android:label="avatar_app"
+        android:label="Аватар"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
