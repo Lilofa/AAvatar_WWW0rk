@@ -154,7 +154,6 @@ deno.lock
 .env
 .env.local
 .env.*.local
-.env.migration
 
 # Local secrets
 scripts/.tokens.json
@@ -171,3 +170,12 @@ temp/
 .DS_Store
 .vscode/settings.json
 *.log
+
+# локальная копия шаблона с настоящими ключами — НЕ коммитить
+.env.migration
+
+# iOS: локальные опции экспорта (Team ID) и профили — не коммитим
+avatar-front/ios/ExportOptions.plist
+*.mobileprovision
+*.p12
+*.p8

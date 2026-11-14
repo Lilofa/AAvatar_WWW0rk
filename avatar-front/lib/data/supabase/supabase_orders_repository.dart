@@ -42,7 +42,13 @@ class SupabaseOrdersRepository implements OrdersRepository {
     } on FunctionException catch (e) {
       // edge-функции отвечают {ok:false,error:'...'} с 4xx/5xx
       final msg = (e.details is Map ? (e.details as Map)['error'] : e.details)?.toString();
-      throw Failures.server(msg ?? e.reasonPhrase);
+      throw switch (e.status) {
+        429 => Failures.rateLimited(),
+        401 => Failures.unauthorized(),
+        403 => Failures.forbidden(),
+        400 => Failures.validation('code', 'Неверный или просроченный код. Запросите новый.'),
+        _ => Failures.server(msg ?? e.reasonPhrase),
+      };
     } catch (e) {
       final f = _err.map(e);
       AppMonitor.failure(f, where: 'data');

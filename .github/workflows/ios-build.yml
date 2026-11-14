@@ -1,0 +1,128 @@
+name: iOS build
+
+# Сборка iOS возможна только на macOS. Этот workflow:
+#   * на каждый PR в main/develop — тесты + сборка БЕЗ подписи (проверка, что iOS собирается);
+#   * по ручному запуску (workflow_dispatch) или тегу ios-v* — подписанный .ipa для TestFlight.
+on:
+  pull_request:
+    branches: [main, develop]
+    paths: ["avatar-front/**", ".github/workflows/ios-build.yml"]
+  push:
+    tags: ["ios-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: avatar-front
+
+jobs:
+  unsigned:
+    name: Tests + unsigned build
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test --concurrency=1
+      - name: Build (no codesign)
+        run: |
+          flutter build ios --release --no-codesign -t lib/main_sentry.dart \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+  signed:
+    name: Signed IPA (TestFlight)
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/ios-v')
+    needs: unsigned
+    runs-on: macos-14
+    environment: ios-release          # требует ручного одобрения, если так настроено в репозитории
+    env:
+      HAS_ASC_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID != '' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Сертификат и профиль — только из секретов репозитория (base64). В логи не попадают.
+      - name: Install signing assets
+        env:
+          P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          echo "$PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$RUNNER_TEMP/profile.mobileprovision" ~/Library/MobileDevice/Provisioning\ Profiles/
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - run: flutter pub get
+      - run: flutter test --concurrency=1
+
+      - name: Export options
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${{ secrets.IOS_TEAM_ID }}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict><key>ru.avatar.avatarApp</key><string>${{ secrets.IOS_PROVISION_PROFILE_NAME }}</string></dict>
+          </dict></plist>
+          PLIST
+
+      - name: Build IPA
+        run: |
+          flutter build ipa --release -t lib/main_sentry.dart \
+            --export-options-plist="$RUNNER_TEMP/ExportOptions.plist" \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avatar-ios-ipa
+          path: avatar-front/build/ios/ipa/*.ipa
+          retention-days: 14
+
+      - name: Upload to TestFlight
+        if: env.HAS_ASC_KEY == 'true'
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8
+          xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
+            --apiKey "$API_KEY_ID" --apiIssuer "$API_ISSUER"
+          rm -f ~/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8
+
+      - name: Cleanup keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
