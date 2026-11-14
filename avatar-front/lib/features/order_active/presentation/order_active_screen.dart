@@ -20,6 +20,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/error/app_failure.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_chat/presentation/order_chat_screen.dart';
 import '../../order_flow/domain/enums.dart';
@@ -111,7 +113,8 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
         (status) {
           if (!mounted) return;
           setState(() {});
-          if (status == OrderStatus.completed || status == OrderStatus.cancelled) {
+          if (status == OrderStatus.completed ||
+              status == OrderStatus.cancelled) {
             widget.onClosed?.call();
           }
           _refreshAvailability();
@@ -145,8 +148,8 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
     );
     _subs.add(
       widget.repository.watchCurrentUser().listen(
-        (u) => mounted ? setState(() => _myPorterId = u?.id) : null,
-      ),
+            (u) => mounted ? setState(() => _myPorterId = u?.id) : null,
+          ),
     );
     widget.repository.getOrder(orderId: widget.orderId).then(
           (o) => mounted ? setState(() => _order = o) : null,
@@ -162,7 +165,8 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
 
   Future<void> _refreshAvailability() async {
     try {
-      final a = await widget.repository.getStageAvailability(orderId: widget.orderId);
+      final a =
+          await widget.repository.getStageAvailability(orderId: widget.orderId);
       if (mounted) setState(() => _avail = a);
     } catch (e) {
       _fail(e);
@@ -181,27 +185,24 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
   String get _meId => _myPorterId ?? '';
   String? _myPorterId;
 
-  bool get _startedDone => _stages.any((s) => s.stage == OrderStageType.started);
-  bool get _finishedDone => _stages.any((s) => s.stage == OrderStageType.finished);
+  bool get _startedDone =>
+      _stages.any((s) => s.stage == OrderStageType.started);
+  bool get _finishedDone =>
+      _stages.any((s) => s.stage == OrderStageType.finished);
 
   @override
   Widget build(BuildContext context) {
     if (_loadError != null && _order == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Заказ')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_loadError!.message, textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                if (_loadError!.showRetry)
-                  FilledButton(onPressed: _subscribe, child: const Text('Повторить')),
-              ],
-            ),
-          ),
+        body: StateView(
+          icon: Icons.cloud_off_outlined,
+          color: AppColors.error,
+          body: Text(_loadError!.message),
+          action: _loadError!.showRetry
+              ? FilledButton(
+                  onPressed: _subscribe, child: const Text('Повторить'))
+              : null,
         ),
       );
     }
@@ -215,82 +216,175 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
       appBar: AppBar(
         title: Text(order.taskTitle),
         actions: [
-          IconButton(
-            key: const Key('active_chat_btn'),
-            tooltip: 'Чат по заказу',
-            icon: const Icon(Icons.chat_bubble_outline),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => OrderChatScreen(
-                repository: widget.repository,
-                orderId: widget.orderId,
-              ),
-            )),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: IconButton.filledTonal(
+              key: const Key('active_chat_btn'),
+              tooltip: 'Чат по заказу',
+              icon: const Icon(Icons.chat_bubble_outline),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => OrderChatScreen(
+                  repository: widget.repository,
+                  orderId: widget.orderId,
+                ),
+              )),
+            ),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
-          _statusChip(order),
-          if (order.status == OrderStatus.completed &&
-              _myId != null &&
-              _myId == order.clientId &&
-              // баг-репорт 25.09: грузчик не оценивает заказ, в котором работал
-              !_takers.any((t) => t.porter.id == _myId))
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: FilledButton(
-                key: const Key('active_review_btn'),
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => OrderReviewScreen(
-                    repository: widget.repository,
-                    orderId: widget.orderId,
-                  ),
-                )),
-                child: const Text('Оценить заказ'),
+      // Column, а не ListView: блоков мало, а ленивый список не строит
+      // нижние (кнопка этапа, обратная связь), пока до них не доскроллили.
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _summaryCard(order),
+            if (order.status == OrderStatus.completed &&
+                _myId != null &&
+                _myId == order.clientId &&
+                // баг-репорт 25.09: грузчик не оценивает заказ, в котором работал
+                !_takers.any((t) => t.porter.id == _myId))
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: FilledButton.icon(
+                  key: const Key('active_review_btn'),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => OrderReviewScreen(
+                      repository: widget.repository,
+                      orderId: widget.orderId,
+                    ),
+                  )),
+                  icon: const Icon(Icons.star_rounded, size: 20),
+                  label: const Text('Оценить заказ'),
+                ),
               ),
-            ),
-          const SizedBox(height: 12),
-          if (order.isOverdueAt(_now)) _overtimeBanner(order),
-          _leadBlock(),
-          const SizedBox(height: 12),
-          _timeline(order),
-          const SizedBox(height: 12),
-          _entranceBlock(order),
-          const SizedBox(height: 16),
-          if (_offlinePending != null) _offlineBanner(),
-          if (_finishedDone) _feedbackBlock(order) else _actionButton(order),
-          if (_lastResult != null) _resultNote(order),
-        ],
+            const SizedBox(height: 12),
+            if (order.isOverdueAt(_now)) _overtimeBanner(order),
+            _leadBlock(),
+            const SizedBox(height: 12),
+            _timeline(order),
+            const SizedBox(height: 12),
+            _entranceBlock(order),
+            const SizedBox(height: 16),
+            if (_offlinePending != null) _offlineBanner(),
+            if (_finishedDone) _feedbackBlock(order) else _actionButton(order),
+            if (_lastResult != null) _resultNote(order),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _statusChip(Order order) => Wrap(
-        spacing: 8,
-        children: [
-          Chip(label: Text('Статус: ${order.status.wire}')),
-          Chip(label: Text('Срочность: ${order.urgency.wire}')),
-          if (order.isReplacement) const Chip(label: Text('Замена')),
-        ],
-      );
-
-  Widget _overtimeBanner(Order order) => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFC62828).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
+  /// Синяя «шапка» заказа: статус, адрес, время, состав.
+  Widget _summaryCard(Order order) => BrandSurface(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(' Заказ идёт дольше плана (план + 15 минут)',
-                style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFC62828))),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _heroPill(order.status.icon, order.status.label, bright: true),
+                _heroPill(order.urgency.icon, order.urgency.label),
+                if (order.isReplacement) _heroPill(Icons.swap_horiz, 'Замена'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              order.address,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                height: 1.25,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            if (order.taskDescription.trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                order.taskDescription,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  height: 1.35,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 16,
+              runSpacing: 6,
+              children: [
+                MetaItem(
+                  icon: Icons.schedule,
+                  text: AppFormat.relativeDay(order.timeStart, now: _now),
+                  color: Colors.white,
+                  bold: true,
+                ),
+                MetaItem(
+                  icon: Icons.groups_2_outlined,
+                  text: '${order.peopleCount} чел.',
+                  color: Colors.white,
+                ),
+                MetaItem(
+                  icon: Icons.timelapse,
+                  text: AppFormat.duration(order.plannedDurationMin),
+                  color: Colors.white,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+  Widget _heroPill(IconData icon, String label, {bool bright = false}) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: bright
+              ? AppColors.brandYellow
+              : Colors.white.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: bright ? AppColors.ink : Colors.white),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: bright ? AppColors.ink : Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _overtimeBanner(Order order) => AppBanner(
+        margin: const EdgeInsets.only(bottom: 12),
+        icon: Icons.timer_off_outlined,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Заказ идёт дольше плана (план + 15 минут)',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700, color: AppColors.error)),
             if (_isLead) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               OutlinedButton(
                 onPressed: _busy ? null : _askDelayReason,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  minimumSize: const Size(64, 42),
+                  side:
+                      BorderSide(color: AppColors.error.withValues(alpha: 0.4)),
+                ),
                 child: const Text('Объяснить причину задержки'),
               ),
             ],
@@ -301,61 +395,185 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
   Widget _leadBlock() {
     final lead = _lead;
     if (lead == null) {
-      return const ListTile(
-        leading: SizedBox(
-          width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2),
+      return const AppCard(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 44,
+              height: 44,
+              child: Padding(
+                padding: EdgeInsets.all(10),
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Старший назначается…',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  SizedBox(height: 2),
+                  Text(
+                    'Диспетчер выберет за 5 минут, иначе — максимальный рейтинг',
+                    style: TextStyle(color: AppColors.muted, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        title: Text('Старший назначается…'),
-        subtitle: Text('Диспетчер выберет за 5 минут, иначе — максимальный рейтинг'),
       );
     }
     final meIsLead = _takers.any((t) => t.isLead && t.porter.id == _meId);
-    return ListTile(
-      leading: const Icon(Icons.badge_outlined),
-      title: Text('Старший: ${lead.name}'),
-      subtitle: meIsLead ? const Text('Это вы — вам нажимать «Начали» и «Закончили»') : null,
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          InitialAvatar(
+            name: lead.name,
+            background: AppColors.brandYellow,
+            foreground: AppColors.ink,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Старший: ${lead.name}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15)),
+                if (meIsLead) ...[
+                  const SizedBox(height: 2),
+                  const Text('Это вы — вам нажимать «Начали» и «Закончили»',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                ],
+              ],
+            ),
+          ),
+          if (_takers.length > 1)
+            AppPill(
+              label: '${_takers.length}',
+              icon: Icons.groups_2_outlined,
+              color: AppColors.muted,
+            ),
+        ],
+      ),
     );
   }
 
   Widget _timeline(Order order) {
     final morning = order.isMorning;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Этапы', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            for (final stage in OrderStageType.values)
-              if (morning || stage != OrderStageType.woke) _timelineRow(stage),
-          ],
-        ),
+    final stages = [
+      for (final stage in OrderStageType.values)
+        if (morning || stage != OrderStageType.woke) stage,
+    ];
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Этапы',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2)),
+          const SizedBox(height: 12),
+          for (var i = 0; i < stages.length; i++)
+            _timelineRow(stages[i], isLast: i == stages.length - 1),
+        ],
       ),
     );
   }
 
-  Widget _timelineRow(OrderStageType stage) {
+  Widget _timelineRow(OrderStageType stage, {required bool isLast}) {
     final mine = _stages.where((s) => s.stage == stage && s.porterId == _meId);
     final done = mine.isNotEmpty;
     final at = done ? mine.first.at : null;
     final isNext = _avail.nextRequired == stage;
-    final hhmm = at == null
-        ? ''
-        : '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    final hhmm = at == null ? '' : AppFormat.hhmm(at);
+    final dotColor = done
+        ? AppColors.success
+        : (isNext ? AppColors.brandBlue : AppColors.border);
+    return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            done ? Icons.check_circle : (isNext ? Icons.radio_button_checked : Icons.radio_button_off),
-            size: 18,
-            color: done ? const Color(0xFF2E7D32) : (isNext ? const Color(0xFF1D5BA6) : Colors.grey),
+          SizedBox(
+            width: 28,
+            child: Column(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: done
+                        ? AppColors.success
+                        : (isNext
+                            ? AppColors.brandBlueSoft
+                            : AppColors.surface),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: dotColor, width: 2),
+                  ),
+                  child: done
+                      ? const Icon(Icons.check, size: 15, color: Colors.white)
+                      : (isNext
+                          ? const Center(
+                              child: SizedBox(
+                                width: 8,
+                                height: 8,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: AppColors.brandBlue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 3),
+                      color: done ? AppColors.success : AppColors.border,
+                    ),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(width: 8),
-          Text(_stageLabel(stage), style: TextStyle(fontWeight: isNext ? FontWeight.w700 : null)),
-          const Spacer(),
-          Text(hhmm, style: TextStyle(color: Colors.grey.shade600)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(top: 2, bottom: isLast ? 10 : 18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _stageLabel(stage),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight:
+                          isNext || done ? FontWeight.w700 : FontWeight.w500,
+                      color: done || isNext ? AppColors.ink : AppColors.muted,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    hhmm,
+                    style: const TextStyle(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -373,50 +591,64 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
   Widget _entranceBlock(Order order) {
     if (!_startedDone) {
       return Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.border),
         ),
-        child: const Text('🔒 Ориентир (подъезд, код, этаж) откроется после этапа «Начали»'),
+        child: const Row(
+          children: [
+            Icon(Icons.lock_outline, size: 20, color: AppColors.muted),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Ориентир (подъезд, код, этаж) откроется после этапа «Начали»',
+                style: TextStyle(color: AppColors.muted, height: 1.35),
+              ),
+            ),
+          ],
+        ),
       );
     }
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1D5BA6).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return AppBanner(
+      tone: BannerTone.info,
+      icon: Icons.place_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('📍 Ориентир', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(order.entrance ?? 'Ориентир не указан'),
+          const Text('Ориентир',
+              style: TextStyle(
+                  fontWeight: FontWeight.w800, color: AppColors.brandBlueDeep)),
+          const SizedBox(height: 2),
+          Text(order.entrance ?? 'Ориентир не указан',
+              style: const TextStyle(fontSize: 15, height: 1.35)),
         ],
       ),
     );
   }
 
-  Widget _offlineBanner() => Container(
+  Widget _offlineBanner() => AppBanner(
+        tone: BannerTone.warning,
+        icon: Icons.wifi_off,
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFB26A00).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text('Нет сети: этап «$_offlinePendingText» не отправлен. '
-                  'Досылаем автоматически, либо:'),
+            Text('Нет сети: этап «$_offlinePendingText» не отправлен. '
+                'Досылаем автоматически, либо:'),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                  onPressed: _retryOffline,
+                  child: const Text('Отправить ещё раз')),
             ),
-            TextButton(onPressed: _retryOffline, child: const Text('Отправить ещё раз')),
           ],
         ),
       );
 
-  String get _offlinePendingText => _offlinePending == null ? '' : _stageLabel(_offlinePending!);
+  String get _offlinePendingText =>
+      _offlinePending == null ? '' : _stageLabel(_offlinePending!);
 
   Widget _actionButton(Order order) {
     final next = _avail.nextRequired;
@@ -438,18 +670,31 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
       children: [
         FilledButton(
           onPressed: canPress && !_busy ? () => _press(next, order) : null,
-          child: Text(_stageLabel(next)),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(64, 60),
+            textStyle:
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg)),
+          ),
+          child: _busy
+              ? const ButtonSpinner(color: AppColors.muted)
+              : Text(_stageLabel(next)),
         ),
         if (!canPress && _avail.blockedReason != null) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Text(_avail.blockedReason!,
-              textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.muted)),
         ],
         if (canPress && decision.allowed && decision.warning != null) ...[
-          const SizedBox(height: 6),
-          Text(decision.warning!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFFB26A00), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          AppBanner(
+            tone: BannerTone.warning,
+            child: Text(decision.warning!,
+                style: const TextStyle(
+                    color: AppColors.warning, fontWeight: FontWeight.w600)),
+          ),
         ],
       ],
     );
@@ -481,8 +726,12 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
           title: const Text('Точно отметить этап?'),
           content: Text(decision.warning!),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Отметить')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Отмена')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Отметить')),
           ],
         ),
       );
@@ -491,14 +740,16 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
 
     setState(() => _busy = true);
     try {
-      final res = await widget.repository.setStage(orderId: widget.orderId, stage: stage);
+      final res = await widget.repository
+          .setStage(orderId: widget.orderId, stage: stage);
       if (mounted) setState(() => _lastResult = res);
       await _refreshAvailability();
     } on AppFailure catch (f) {
       if (f.code == FailureCode.offline) {
         if (mounted) setState(() => _offlinePending = stage);
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(f.message)));
       }
     } catch (e) {
       if (mounted) {
@@ -523,66 +774,85 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
     final deadline = _avail.feedbackDeadline;
     final expired = deadline != null && _now.isAfter(deadline);
     if (expired) {
-      return const Card(
-        child: ListTile(
-          leading: Icon(Icons.timelapse_outlined, color: Color(0xFFC62828)),
-          title: Text('Обратная связь не сдана в срок'),
-          subtitle: Text('Заказ закрыт автоматически (feedback_missed)'),
+      return const AppBanner(
+        icon: Icons.timelapse_outlined,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Обратная связь не сдана в срок',
+                style: TextStyle(fontWeight: FontWeight.w700)),
+            SizedBox(height: 2),
+            Text('Заказ закрыт автоматически (feedback_missed)',
+                style: TextStyle(color: AppColors.muted, fontSize: 13)),
+          ],
         ),
       );
     }
     final remaining = deadline?.difference(_now);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Text('Обратная связь старшего',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                const Spacer(),
-                if (remaining != null)
-                  Text(
-                    '${remaining.inMinutes.toString().padLeft(2, '0')}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFB26A00)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                ChoiceChip(
-                  label: const Text('Да, всё хорошо'),
-                  selected: _wentWell == true,
-                  onSelected: (_) => setState(() => _wentWell = true),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Нет, проблемы'),
-                  selected: _wentWell == false,
-                  onSelected: (_) => setState(() => _wentWell = false),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _commentCtrl,
-              minLines: 2,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Комментарий в «Результат заявки»…',
-                border: OutlineInputBorder(),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Обратная связь старшего',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2)),
               ),
+              if (remaining != null)
+                AppPill(
+                  icon: Icons.timer_outlined,
+                  color: AppColors.warning,
+                  label:
+                      '${remaining.inMinutes.toString().padLeft(2, '0')}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}',
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                avatar: Icon(Icons.thumb_up_alt_outlined,
+                    size: 16,
+                    color:
+                        _wentWell == true ? Colors.white : AppColors.success),
+                label: const Text('Да, всё хорошо'),
+                selected: _wentWell == true,
+                selectedColor: AppColors.success,
+                onSelected: (_) => setState(() => _wentWell = true),
+              ),
+              ChoiceChip(
+                avatar: Icon(Icons.thumb_down_alt_outlined,
+                    size: 16,
+                    color: _wentWell == false ? Colors.white : AppColors.error),
+                label: const Text('Нет, проблемы'),
+                selected: _wentWell == false,
+                selectedColor: AppColors.error,
+                onSelected: (_) => setState(() => _wentWell = false),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _commentCtrl,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: 'Комментарий в «Результат заявки»…',
+              fillColor: AppColors.surfaceAlt,
             ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: _wentWell == null || _busy ? null : _submitFeedback,
-              child: const Text('Закрыть заказ'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _wentWell == null || _busy ? null : _submitFeedback,
+            child: const Text('Закрыть заказ'),
+          ),
+        ],
       ),
     );
   }
@@ -593,7 +863,8 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
       final res = await widget.repository.finishOrder(
         orderId: widget.orderId,
         wentWell: _wentWell!,
-        resultComment: _commentCtrl.text.trim().isEmpty ? null : _commentCtrl.text.trim(),
+        resultComment:
+            _commentCtrl.text.trim().isEmpty ? null : _commentCtrl.text.trim(),
       );
       if (mounted) {
         setState(() => _completion = res);
@@ -609,7 +880,8 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
       }
     } on AppFailure catch (f) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(f.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -619,29 +891,25 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
   Widget _resultNote(Order order) {
     final c = _completion;
     if (c != null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 12),
-        child: Text(
-          'Закрыт: ${c.hours} ч на человека, всего ${c.totalHours} ч, '
-          'рейтинг ${c.ratingDelta >= 0 ? '+' : ''}${c.ratingDelta}.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey.shade700),
-        ),
+      return AppBanner(
+        tone: BannerTone.success,
+        margin: const EdgeInsets.only(top: 12),
+        message: 'Закрыт: ${c.hours} ч на человека, всего ${c.totalHours} ч, '
+            'рейтинг ${c.ratingDelta >= 0 ? '+' : ''}${c.ratingDelta}.',
       );
     }
     final r = _lastResult;
     if (r == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Text(
-        r.orderReturnedToFeed
-            ? 'Дедлайн пропущен: заказ возвращён в ленту, штраф −5.'
-            : 'Этап «${_stageLabel(r.stage)}» отмечен в '
-                '${r.at.hour.toString().padLeft(2, '0')}:${r.at.minute.toString().padLeft(2, '0')}'
-                '${r.late ? ' (позже дедлайна)' : ''}.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.grey.shade700),
-      ),
+    return AppBanner(
+      tone: r.orderReturnedToFeed || r.late
+          ? BannerTone.warning
+          : BannerTone.success,
+      margin: const EdgeInsets.only(top: 12),
+      message: r.orderReturnedToFeed
+          ? 'Дедлайн пропущен: заказ возвращён в ленту, штраф −5.'
+          : 'Этап «${_stageLabel(r.stage)}» отмечен в '
+              '${AppFormat.hhmm(r.at)}'
+              '${r.late ? ' (позже дедлайна)' : ''}.',
     );
   }
 
@@ -655,10 +923,12 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
           controller: ctrl,
           minLines: 2,
           maxLines: 4,
-          decoration: const InputDecoration(hintText: 'Что помешало закончить в срок?'),
+          decoration:
+              const InputDecoration(hintText: 'Что помешало закончить в срок?'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: const Text('Отправить'),
@@ -668,14 +938,16 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
     );
     if (reason == null || reason.length < 5) return;
     try {
-      await widget.repository.submitDelayReason(orderId: widget.orderId, reason: reason);
+      await widget.repository
+          .submitDelayReason(orderId: widget.orderId, reason: reason);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Причина отправлена диспетчеру')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Причина отправлена диспетчеру')));
       }
     } on AppFailure catch (f) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(f.message)));
       }
     }
   }

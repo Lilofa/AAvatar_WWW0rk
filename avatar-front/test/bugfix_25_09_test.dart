@@ -78,6 +78,8 @@ void main() {
       expect(formatRuPhone('983'), '+7(983)');
       expect(formatRuPhone('98335'), '+7(983)-35');
       expect(formatRuPhone(''), '+7');
+      // девятая цифра: раньше substring(8, 10) падал с RangeError при вводе
+      expect(formatRuPhone('983355959'), '+7(983)-355-95-9');
     });
   });
 
@@ -112,6 +114,11 @@ void main() {
       urgency: OrderUrgency.current,
       tariff: '0 RUB',
     ));
+    // Высокий экран: своя заявка — четвёртая в ленте, а finder видит только
+    // карточки в видимой области; тест не должен зависеть от высоты карточки.
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(AvatarApp(repository: repo));
     await settle(tester, 2);
     await tester.enterText(find.byKey(const Key('login_phone')), '+79991234567');
