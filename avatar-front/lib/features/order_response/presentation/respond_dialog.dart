@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/error/app_failure.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/models.dart';
 
@@ -54,8 +55,8 @@ class _RespondDialogState extends State<RespondDialog> {
     if (_busy) return;
     final minutes = int.tryParse(_eta.text.trim());
     if (minutes == null || minutes < 1 || minutes > 240) {
-      setState(() =>
-          _error = 'Укажите реальное время в пути: от 1 до 240 минут.');
+      setState(
+          () => _error = 'Укажите реальное время в пути: от 1 до 240 минут.');
       return;
     }
     setState(() {
@@ -75,40 +76,102 @@ class _RespondDialogState extends State<RespondDialog> {
     }
   }
 
+  static const _quickEta = [10, 15, 20, 30, 45];
+
   @override
   Widget build(BuildContext context) => AlertDialog(
         title: const Text('Откликнуться на заказ'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.order.address,
-              style: TextStyle(color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('respond_eta'),
-              controller: _eta,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Минут до адреса (ETA)',
-                suffixText: 'мин',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _error!,
-                  key: const Key('respond_error'),
-                  style: const TextStyle(color: Colors.red),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceAlt,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.place_outlined,
+                        size: 18, color: AppColors.brandBlue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.order.address,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-          ],
+              const SizedBox(height: 16),
+              const Text(
+                'За сколько доедете?',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.muted),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final m in _quickEta)
+                    ChoiceChip(
+                      label: Text('$m'),
+                      selected: _eta.text.trim() == '$m',
+                      onSelected: _busy
+                          ? null
+                          : (_) => setState(() {
+                                _eta.text = '$m';
+                                _error = null;
+                              }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('respond_eta'),
+                controller: _eta,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) => setState(() {}),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                decoration: const InputDecoration(
+                  labelText: 'Минут до адреса (ETA)',
+                  suffixText: 'мин',
+                  fillColor: AppColors.surfaceAlt,
+                ),
+              ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    _error!,
+                    key: const Key('respond_error'),
+                    style: const TextStyle(
+                        color: AppColors.error, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              const SizedBox(height: 10),
+              const Text(
+                'Диспетчер ответит в течение 15 минут.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
+            ],
+          ),
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
         actions: [
           TextButton(
             onPressed: _busy ? null : () => Navigator.of(context).pop(false),

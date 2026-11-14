@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/error/app_failure.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/models.dart';
 
@@ -26,9 +28,6 @@ class OrderChatScreen extends StatefulWidget {
 
   final OrdersRepository repository;
   final String orderId;
-
-  static const Color brandBlue = Color(0xFF1D5BA6);
-  static const Color brandYellow = Color(0xFFF5E326);
 
   @override
   State<OrderChatScreen> createState() => _OrderChatScreenState();
@@ -60,19 +59,16 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
   void _listen() {
     _sub?.cancel();
-    _sub = widget.repository
-        .watchOrderChat(orderId: widget.orderId)
-        .listen(
-          (list) {
-            if (mounted) setState(() => _messages = list);
-          },
-          onError: (Object e) {
-            if (mounted) {
-              setState(() =>
-                  _error = e is AppFailure ? e : Failures.unknown(e));
-            }
-          },
-        );
+    _sub = widget.repository.watchOrderChat(orderId: widget.orderId).listen(
+      (list) {
+        if (mounted) setState(() => _messages = list);
+      },
+      onError: (Object e) {
+        if (mounted) {
+          setState(() => _error = e is AppFailure ? e : Failures.unknown(e));
+        }
+      },
+    );
   }
 
   /// «Повторить» из error-состояния: сброс и новая подписка.
@@ -147,11 +143,7 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Чат по заказу'),
-          backgroundColor: OrderChatScreen.brandBlue,
-          foregroundColor: Colors.white,
-        ),
+        appBar: AppBar(title: const Text('Чат по заказу')),
         body: Column(
           children: [
             Expanded(child: _body()),
@@ -162,24 +154,15 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
   Widget _body() {
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            key: const Key('chat_error'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off, size: 48, color: Colors.grey),
-              const SizedBox(height: 12),
-              Text(_error!.message, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              FilledButton(
-                key: const Key('chat_retry'),
-                onPressed: _subscribe,
-                child: const Text('Повторить'),
-              ),
-            ],
-          ),
+      return StateView(
+        key: const Key('chat_error'),
+        icon: Icons.wifi_off,
+        color: AppColors.error,
+        body: Text(_error!.message),
+        action: FilledButton(
+          key: const Key('chat_retry'),
+          onPressed: _subscribe,
+          child: const Text('Повторить'),
         ),
       );
     }
@@ -190,27 +173,18 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
       );
     }
     if (messages.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            key: Key('chat_empty'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.forum_outlined, size: 48, color: Colors.grey),
-              SizedBox(height: 12),
-              Text(
-                'Сообщений пока нет.\nНапишите первым — бригада и диспетчер увидят.',
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+      return const StateView(
+        key: Key('chat_empty'),
+        icon: Icons.forum_outlined,
+        body: Text(
+          'Сообщений пока нет.\nНапишите первым — бригада и диспетчер увидят.',
+          textAlign: TextAlign.center,
         ),
       );
     }
     return ListView.builder(
       key: const Key('chat_list'),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       itemCount: messages.length,
       itemBuilder: (context, i) => _bubble(messages[i]),
     );
@@ -218,51 +192,76 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
 
   Widget _bubble(ChatMessage m) {
     final mine = m.isMine;
+    const r = Radius.circular(18);
+    const tail = Radius.circular(4);
+    final textStyle = TextStyle(
+      fontSize: 15,
+      height: 1.35,
+      color: mine ? Colors.white : AppColors.ink,
+    );
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        decoration: BoxDecoration(
-          color: mine
-              ? OrderChatScreen.brandBlue
-              : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment:
-              mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            if (!mine)
-              Text(
-                m.authorName ?? 'Участник',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: mine ? Colors.white70 : OrderChatScreen.brandBlue,
-                ),
-              ),
-            if (m.attachmentUrl != null)
-              _attachment(m.attachmentUrl!, mine)
-            else
-              Text(
-                m.text,
-                style: TextStyle(color: mine ? Colors.white : Colors.black87),
-              ),
-            if (m.attachmentUrl != null)
-              Text(
-                m.text,
-                style: TextStyle(color: mine ? Colors.white : Colors.black87),
-              ),
-            Text(
-              '${m.sentAt.hour.toString().padLeft(2, '0')}:${m.sentAt.minute.toString().padLeft(2, '0')}',
-              style: TextStyle(fontSize: 10, color: mine ? Colors.white60 : Colors.grey),
-            ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!mine) ...[
+            InitialAvatar(name: m.authorName ?? 'Участник', size: 30),
+            const SizedBox(width: 6),
           ],
-        ),
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.fromLTRB(14, 9, 14, 8),
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              decoration: BoxDecoration(
+                color: mine ? AppColors.brandBlue : AppColors.surface,
+                borderRadius: BorderRadius.only(
+                  topLeft: r,
+                  topRight: r,
+                  bottomLeft: mine ? r : tail,
+                  bottomRight: mine ? tail : r,
+                ),
+                border: mine ? null : Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment:
+                    mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  if (!mine)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        m.authorName ?? 'Участник',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.brandBlue,
+                        ),
+                      ),
+                    ),
+                  if (m.attachmentUrl != null) ...[
+                    _attachment(m.attachmentUrl!, mine),
+                    const SizedBox(height: 6),
+                  ],
+                  Text(m.text, style: textStyle),
+                  const SizedBox(height: 2),
+                  Text(
+                    AppFormat.hhmm(m.sentAt),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: mine
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : AppColors.faint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -272,105 +271,143 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
     if (url.startsWith('mock://')) {
       return Container(
         key: const Key('chat_attachment'),
-        width: 160,
-        height: 100,
+        width: 180,
+        height: 110,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: mine ? Colors.white24 : Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(8),
+          color: mine
+              ? Colors.white.withValues(alpha: 0.18)
+              : AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
-        child: const Icon(Icons.image, size: 40),
+        child: Icon(Icons.image_outlined,
+            size: 40, color: mine ? Colors.white : AppColors.faint),
       );
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Image.network(
         url,
         key: const Key('chat_attachment'),
-        width: 180,
+        width: 200,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined),
       ),
     );
   }
 
-  Widget _inputRow() => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_pendingBytes != null)
-                Container(
-                  key: const Key('chat_attach_chip'),
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.memory(_pendingBytes!,
-                          width: 36, height: 36, fit: BoxFit.cover),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(_pendingName ?? 'photo.jpg',
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      IconButton(
-                        key: const Key('chat_attach_remove'),
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () => setState(() {
-                          _pendingBytes = null;
-                          _pendingName = null;
-                        }),
-                      ),
-                    ],
-                  ),
-                ),
-              Row(
-            children: [
-              IconButton(
-                key: const Key('chat_attach'),
-                tooltip: 'Прикрепить фото',
-                icon: const Icon(Icons.attach_file),
-                onPressed: _sending ? null : _pick,
-              ),
-              Expanded(
-                child: TextField(
-                  key: const Key('chat_input'),
-                  controller: _input,
-                  maxLength: 2000,
-                  decoration: const InputDecoration(
-                    hintText: 'Сообщение бригаде…',
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                key: const Key('chat_send'),
-                onPressed: _sending ? null : _send,
-                style: IconButton.styleFrom(
-                  backgroundColor: OrderChatScreen.brandBlue,
-                ),
-                icon: _sending
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+  Widget _inputRow() => DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(6, 8, 10, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_pendingBytes != null)
+                  Container(
+                    key: const Key('chat_attach_chip'),
+                    margin: const EdgeInsets.only(left: 6, bottom: 8),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.brandBlueSoft,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.memory(_pendingBytes!,
+                              width: 40, height: 40, fit: BoxFit.cover),
                         ),
-                      )
-                    : const Icon(Icons.send, color: Colors.white),
-              ),
-            ],
-              ),
-            ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(_pendingName ?? 'photo.jpg',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
+                        ),
+                        IconButton(
+                          key: const Key('chat_attach_remove'),
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => setState(() {
+                            _pendingBytes = null;
+                            _pendingName = null;
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      key: const Key('chat_attach'),
+                      tooltip: 'Прикрепить фото',
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      color: AppColors.muted,
+                      onPressed: _sending ? null : _pick,
+                    ),
+                    Expanded(
+                      child: TextField(
+                        key: const Key('chat_input'),
+                        controller: _input,
+                        maxLength: 2000,
+                        minLines: 1,
+                        maxLines: 4,
+                        decoration: InputDecoration(
+                          hintText: 'Сообщение бригаде…',
+                          isDense: true,
+                          counterText: '',
+                          fillColor: AppColors.background,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: const BorderSide(
+                                color: AppColors.brandBlue, width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      key: const Key('chat_send'),
+                      onPressed: _sending ? null : _send,
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.brandBlue,
+                        fixedSize: const Size(46, 46),
+                        shape: const CircleBorder(),
+                      ),
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.arrow_upward_rounded,
+                              color: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       );

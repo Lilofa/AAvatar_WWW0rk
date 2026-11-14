@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/error/app_failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
 
@@ -80,22 +81,18 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
 
   Widget _body() {
     if (_error != null) {
-      return Center(
-        child: Column(
-          key: const Key('ref_error'),
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!.message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              key: const Key('ref_retry'),
-              onPressed: () {
-                setState(() => _error = null);
-                _load();
-              },
-              child: const Text('Повторить'),
-            ),
-          ],
+      return StateView(
+        key: const Key('ref_error'),
+        icon: Icons.cloud_off_outlined,
+        color: AppColors.error,
+        body: Text(_error!.message),
+        action: FilledButton(
+          key: const Key('ref_retry'),
+          onPressed: () {
+            setState(() => _error = null);
+            _load();
+          },
+          child: const Text('Повторить'),
         ),
       );
     }
@@ -106,108 +103,160 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
       );
     }
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: info.code == null
-                ? Column(
-                    children: [
-                      const Text('У тебя ещё нет кода приглашения.'),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        key: const Key('ref_gen'),
-                        onPressed: _generating ? null : _generate,
-                        child: const Text('Получить код'),
+        BrandSurface(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          padding: const EdgeInsets.all(20),
+          child: info.code == null
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.card_giftcard,
+                        size: 36, color: AppColors.brandYellow),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'У тебя ещё нет кода приглашения.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      key: const Key('ref_gen'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.brandYellow,
+                        foregroundColor: AppColors.ink,
                       ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Твой код приглашения'),
-                            const SizedBox(height: 4),
-                            SelectableText(
-                              info.code!,
-                              key: const Key('ref_code'),
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.brandBlue,
-                              ),
+                      onPressed: _generating ? null : _generate,
+                      child: const Text('Получить код'),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Твой код приглашения',
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8))),
+                          const SizedBox(height: 6),
+                          SelectableText(
+                            info.code!,
+                            key: const Key('ref_code'),
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 3,
+                              color: AppColors.brandYellow,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      IconButton.filled(
-                        key: const Key('ref_copy'),
-                        tooltip: 'Скопировать',
-                        onPressed: _copy,
-                        icon: const Icon(Icons.copy),
+                    ),
+                    IconButton.filled(
+                      key: const Key('ref_copy'),
+                      tooltip: 'Скопировать',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withValues(alpha: 0.16),
+                        foregroundColor: Colors.white,
+                        fixedSize: const Size(52, 52),
                       ),
-                    ],
-                  ),
+                      onPressed: _copy,
+                      icon: const Icon(Icons.copy_rounded),
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 12),
+        const AppBanner(
+          tone: BannerTone.info,
+          child: Text(
+            'Новичок вводит твой код при регистрации — и попадает в твой '
+            'список. Правила засчёта бонусов объявим вместе с кроном засчёта '
+            '(как в боте: 5 дней в чате).',
+            style:
+                TextStyle(fontSize: 13, height: 1.4, color: AppColors.inkSoft),
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'Новичок вводит твой код при регистрации — и попадает в твой '
-          'список. Правила засчёта бонусов объявим вместе с кроном засчёта '
-          '(как в боте: 5 дней в чате).',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text('Приглашено: ${info.count}',
+              key: const Key('ref_count'),
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2)),
         ),
-        const SizedBox(height: 16),
-        Text('Приглашено: ${info.count}',
-            key: const Key('ref_count'),
-            style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
         if (info.invited.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              key: Key('ref_empty'),
-              'Пока никого. Поделись кодом в чате бригады — '
-              'новенькие грузчики пригодятся всегда.',
-              textAlign: TextAlign.center,
+          const AppCard(
+            color: AppColors.surfaceAlt,
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+            child: Column(
+              children: [
+                Icon(Icons.group_add_outlined,
+                    size: 36, color: AppColors.faint),
+                SizedBox(height: 10),
+                Text(
+                  key: Key('ref_empty'),
+                  'Пока никого. Поделись кодом в чате бригады — '
+                  'новенькие грузчики пригодятся всегда.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, height: 1.4),
+                ),
+              ],
             ),
           )
         else
           for (final e in info.invited)
-            Card(
-              key: const Key('ref_entry'),
-              child: ListTile(
-                leading: const Icon(Icons.person_add_alt_1,
-                    color: AppColors.brandBlue),
-                title: Text(e.name),
-                subtitle: Text(e.phoneMasked),
-                trailing: _statusChip(e.status),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: AppCard(
+                key: const Key('ref_entry'),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    InitialAvatar(name: e.name),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(e.name,
+                              style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text(e.phoneMasked,
+                              style: const TextStyle(
+                                  color: AppColors.muted, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    _statusChip(e.status),
+                  ],
+                ),
               ),
             ),
       ],
     );
   }
 
-  Widget _statusChip(ReferralStatus s) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: switch (s) {
-            ReferralStatus.counted => AppColors.success.withValues(alpha: 0.15),
-            ReferralStatus.left => Colors.grey.withValues(alpha: 0.2),
-            ReferralStatus.fresh => AppColors.brandYellow.withValues(alpha: 0.3),
-          },
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          switch (s) {
-            ReferralStatus.counted => 'засчитан',
-            ReferralStatus.left => 'ушёл',
-            ReferralStatus.fresh => 'новый',
-          },
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
+  Widget _statusChip(ReferralStatus s) => AppPill(
+        label: switch (s) {
+          ReferralStatus.counted => 'засчитан',
+          ReferralStatus.left => 'ушёл',
+          ReferralStatus.fresh => 'новый',
+        },
+        color: switch (s) {
+          ReferralStatus.counted => AppColors.success,
+          ReferralStatus.left => AppColors.muted,
+          ReferralStatus.fresh => AppColors.warning,
+        },
       );
 }

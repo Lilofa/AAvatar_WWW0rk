@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/error/app_failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
@@ -64,22 +65,18 @@ class _DispatcherScreenState extends State<DispatcherScreen> {
 
   Widget _body() {
     if (_error != null) {
-      return Center(
-        child: Column(
-          key: const Key('disp_error'),
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!.message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              key: const Key('disp_retry'),
-              onPressed: () {
-                setState(() => _error = null);
-                _listen();
-              },
-              child: const Text('Повторить'),
-            ),
-          ],
+      return StateView(
+        key: const Key('disp_error'),
+        icon: Icons.cloud_off_outlined,
+        color: AppColors.error,
+        body: Text(_error!.message),
+        action: FilledButton(
+          key: const Key('disp_retry'),
+          onPressed: () {
+            setState(() => _error = null);
+            _listen();
+          },
+          child: const Text('Повторить'),
         ),
       );
     }
@@ -90,8 +87,11 @@ class _DispatcherScreenState extends State<DispatcherScreen> {
       );
     }
     if (orders.isEmpty) {
-      return const Center(
-        child: Text(
+      return const StateView(
+        icon: Icons.task_alt,
+        color: AppColors.success,
+        title: Text('Всё спокойно'),
+        body: Text(
           key: Key('disp_empty'),
           'Живых заказов нет.\nНовые заявки появятся здесь.',
           textAlign: TextAlign.center,
@@ -100,31 +100,75 @@ class _DispatcherScreenState extends State<DispatcherScreen> {
     }
     return RefreshIndicator(
       onRefresh: () async => _listen(),
-      child: ListView.builder(
+      child: ListView.separated(
         key: const Key('disp_list'),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         itemCount: orders.length,
-        itemBuilder: (context, i) => Card(
-          child: ListTile(
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, i) {
+          final o = orders[i];
+          final statusText = o.status == OrderStatus.new_
+              ? 'ждёт бригаду'
+              : o.status == OrderStatus.approved
+                  ? 'бригада собрана'
+                  : 'в работе';
+          return AppCard(
             key: const Key('disp_order_card'),
-            title: Text(orders[i].taskTitle),
-            subtitle: Text(
-              '${orders[i].address}\n'
-              '${orders[i].status == OrderStatus.new_ ? 'ждёт бригаду' : orders[i].status == OrderStatus.approved ? 'бригада собрана' : 'в работе'} · 👥 ${orders[i].peopleCount}',
-            ),
-            isThreeLine: true,
-            trailing: orders[i].urgency == OrderUrgency.urgent ||
-                    orders[i].urgency == OrderUrgency.replacement
-                ? const Icon(Icons.priority_high, color: AppColors.error)
-                : null,
+            accent: o.urgency.isHot ? AppColors.error : null,
+            padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => DispatcherOrderScreen(
                 repository: widget.repository,
-                orderId: orders[i].id,
+                orderId: o.id,
               ),
             )),
-          ),
-        ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(o.taskTitle,
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2)),
+                      const SizedBox(height: 3),
+                      Text(o.address,
+                          style: const TextStyle(
+                              color: AppColors.muted, height: 1.3)),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          AppPill(
+                            label: statusText,
+                            color: o.status.color,
+                            icon: o.status.icon,
+                          ),
+                          if (o.urgency.isHot) UrgencyBadge(urgency: o.urgency),
+                          MetaItem(
+                            icon: Icons.groups_2_outlined,
+                            text: '${o.peopleCount}',
+                            color: AppColors.muted,
+                          ),
+                          MetaItem(
+                            icon: Icons.schedule,
+                            text: AppFormat.relativeDay(o.timeStart),
+                            color: AppColors.muted,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppColors.faint),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -156,9 +200,8 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
   void initState() {
     super.initState();
     _refreshResponses();
-    _takersSub = widget.repository
-        .watchOrderTakers(orderId: widget.orderId)
-        .listen((t) {
+    _takersSub =
+        widget.repository.watchOrderTakers(orderId: widget.orderId).listen((t) {
       if (mounted) setState(() => _takers = t);
     });
   }
@@ -171,22 +214,23 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
 
   Future<void> _refreshResponses() async {
     try {
-      final list = await widget.repository
-          .getPendingResponses(orderId: widget.orderId);
+      final list =
+          await widget.repository.getPendingResponses(orderId: widget.orderId);
       if (mounted) setState(() => _responses = list);
     } on AppFailure catch (f) {
       if (mounted) setState(() => _error = f);
     }
   }
 
-  Future<void> _act(Future<void> Function() action, {bool refresh = true}) async {
+  Future<void> _act(Future<void> Function() action,
+      {bool refresh = true}) async {
     setState(() => _busy = true);
     try {
       await action();
       if (refresh) await _refreshResponses();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Готово')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Готово')));
       }
     } on AppFailure catch (f) {
       if (mounted) {
@@ -209,10 +253,16 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
           decoration: const InputDecoration(hintText: 'Причина закрытия'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
           FilledButton(
             key: const Key('disp_force_confirm'),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim().isEmpty ? 'Закрыт диспетчером' : ctrl.text.trim()),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(
+                ctx,
+                ctrl.text.trim().isEmpty
+                    ? 'Закрыт диспетчером'
+                    : ctrl.text.trim()),
             child: const Text('Закрыть'),
           ),
         ],
@@ -229,44 +279,92 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Заказ')),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
             if (_error != null)
-              Container(
+              AppBanner(
                 key: const Key('disp_order_error'),
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                message: _error!.message,
+              ),
+            SectionTitle(
+              'Отклики, ожидающие решения',
+              trailing: _responses == null || _responses!.isEmpty
+                  ? null
+                  : AppPill(
+                      label: '${_responses!.length}',
+                      color: AppColors.warning,
+                    ),
+            ),
+            if (_responses == null)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_responses!.isEmpty)
+              const AppCard(
+                color: AppColors.surfaceAlt,
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.error),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!.message)),
+                    Icon(Icons.inbox_outlined, color: AppColors.faint),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Нет откликов, ожидающих решения.',
+                          style: TextStyle(color: AppColors.muted)),
+                    ),
                   ],
                 ),
-              ),
-            const Text('Отклики, ожидающие решения',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            if (_responses == null)
-              const Center(child: CircularProgressIndicator())
-            else if (_responses!.isEmpty)
-              const Text('Нет откликов, ожидающих решения.')
+              )
             else
               for (var i = 0; i < _responses!.length; i++)
-                Card(
-                  child: ListTile(
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AppCard(
                     key: const Key('disp_response_card'),
-                    title: Text(_responses![i].porterName ?? 'Грузчик'),
-                    subtitle: Text('ETA: ${_responses![i].etaMinutes} мин'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                    child: Row(
                       children: [
+                        InitialAvatar(
+                            name: _responses![i].porterName ?? 'Грузчик'),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_responses![i].porterName ?? 'Грузчик',
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 2),
+                              MetaItem(
+                                icon: Icons.near_me_outlined,
+                                text: 'ETA: ${_responses![i].etaMinutes} мин',
+                                color: AppColors.muted,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          key: Key('disp_decline_$i'),
+                          tooltip: 'Отклонить',
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.errorSoft,
+                          ),
+                          onPressed: _busy
+                              ? null
+                              : () => _act(() => widget.repository
+                                  .declineResponse(
+                                      responseId: _responses![i].id)),
+                          icon: const Icon(Icons.close, color: AppColors.error),
+                        ),
+                        const SizedBox(width: 8),
                         IconButton.filled(
                           key: Key('disp_approve_$i'),
+                          tooltip: 'Одобрить',
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                            foregroundColor: Colors.white,
+                          ),
                           onPressed: _busy
                               ? null
                               : () => _act(() => widget.repository
@@ -274,39 +372,78 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
                                       responseId: _responses![i].id)),
                           icon: const Icon(Icons.check),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          key: Key('disp_decline_$i'),
-                          onPressed: _busy
-                              ? null
-                              : () => _act(() => widget.repository
-                                  .declineResponse(
-                                      responseId: _responses![i].id)),
-                          icon: const Icon(Icons.close,
-                              color: AppColors.error),
-                        ),
                       ],
                     ),
                   ),
                 ),
-            const SizedBox(height: 16),
-            const Text('Бригада', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
+            SectionTitle(
+              'Бригада',
+              trailing: _takers.isEmpty
+                  ? null
+                  : AppPill(label: '${_takers.length}', color: AppColors.muted),
+            ),
             if (_takers.isEmpty)
-              const Text('Бригада ещё не собрана.')
-            else
-              for (final t in _takers)
-                ListTile(
-                  dense: true,
-                  leading: Icon(
-                      t.isLead ? Icons.stars : Icons.person_outline,
-                      color: t.isLead ? AppColors.warning : Colors.grey),
-                  title: Text(t.porter.name),
-                  subtitle: t.isLead ? const Text('старший') : null,
+              const AppCard(
+                color: AppColors.surfaceAlt,
+                child: Row(
+                  children: [
+                    Icon(Icons.groups_2_outlined, color: AppColors.faint),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Бригада ещё не собрана.',
+                          style: TextStyle(color: AppColors.muted)),
+                    ),
+                  ],
                 ),
-            const SizedBox(height: 24),
+              )
+            else
+              AppCard(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < _takers.length; i++) ...[
+                      if (i > 0) const Divider(height: 1, indent: 68),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        child: Row(
+                          children: [
+                            InitialAvatar(
+                              name: _takers[i].porter.name,
+                              size: 40,
+                              background: _takers[i].isLead
+                                  ? AppColors.brandYellow
+                                  : AppColors.brandBlueSoft,
+                              foreground: _takers[i].isLead
+                                  ? AppColors.ink
+                                  : AppColors.brandBlue,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(_takers[i].porter.name,
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                            if (_takers[i].isLead)
+                              const AppPill(
+                                label: 'старший',
+                                color: AppColors.warning,
+                                icon: Icons.stars,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            const SizedBox(height: 28),
             OutlinedButton.icon(
               key: const Key('disp_replace_btn'),
+              style:
+                  OutlinedButton.styleFrom(backgroundColor: AppColors.surface),
               onPressed: _busy
                   ? null
                   : () => _act(() => widget.repository
@@ -314,12 +451,17 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
               icon: const Icon(Icons.swap_horiz),
               label: const Text('Найти замену'),
             ),
-            const SizedBox(height: 8),
-            FilledButton(
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
               key: const Key('disp_force_btn'),
-              style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                backgroundColor: AppColors.errorSoft,
+                side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+              ),
               onPressed: _busy ? null : _forceClose,
-              child: const Text('Закрыть принудительно'),
+              icon: const Icon(Icons.block),
+              label: const Text('Закрыть принудительно'),
             ),
           ],
         ),

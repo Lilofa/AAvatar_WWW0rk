@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/error/app_failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
 
@@ -33,7 +34,7 @@ String formatRuPhone(String raw) {
   if (d.length >= 3) b.write(')');
   if (d.length >= 4) b.write('-${d.substring(3, d.length > 6 ? 6 : d.length)}');
   if (d.length >= 7) b.write('-${d.substring(6, d.length > 8 ? 8 : d.length)}');
-  if (d.length >= 9) b.write('-${d.substring(8, 10)}');
+  if (d.length >= 9) b.write('-${d.substring(8, d.length)}');
   return b.toString();
 }
 
@@ -114,8 +115,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _verify() async {
     if (_code.text.trim().length < 4) {
-      setState(() => _error =
-          Failures.validation('code', 'Код — 4–6 цифр из СМС.'));
+      setState(
+          () => _error = Failures.validation('code', 'Код — 4–6 цифр из СМС.'));
       return;
     }
     setState(() {
@@ -138,129 +139,225 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 48),
-                Container(
-                  width: 88,
-                  height: 88,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.brandBlue,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: const Icon(Icons.local_shipping,
-                      size: 44, color: AppColors.brandYellow),
+        backgroundColor: AppColors.brandBlueDeep,
+        body: BrandSurface(
+          child: SafeArea(
+            bottom: false,
+            // SliverFillRemaining: шапка центрируется в свободном месте,
+            // форма прижата к низу; на низком экране всё просто скроллится.
+            // Ширину ограничиваем СНАРУЖИ скролла: SliverFillRemaining меряет
+            // высоту по ширине вьюпорта, сужение внутри даёт overflow.
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: CustomScrollView(
+                  slivers: [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Column(
+                        children: [
+                          Expanded(child: Center(child: _hero())),
+                          _sheet(),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'АВАТАР',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  'Используем силу с умом',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 32),
-                if (!_codeSent) ...[
-                  TextField(
-                    key: const Key('login_phone'),
-                    controller: _phone,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                          RegExp(r'[+\d()\- ]')),
-                      _RuPhoneFormatter(),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: 'Телефон',
-                      hintText: '+7(983)-355-95-99',
-                      helperText: 'Формат: +7(983)-355-95-99',
-                      prefixIcon: Icon(Icons.phone),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    key: const Key('login_send_code'),
-                    onPressed: _busy ? null : _sendCode,
-                    child: Text(_busy ? 'Отправляем…' : 'Получить код'),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final r in const [UserRole.client, UserRole.porter])
-                        ChoiceChip(
-                          key: Key('login_role_${r.name}'),
-                          label: Text(r == UserRole.client
-                              ? 'Я заказчик'
-                              : 'Я грузчик'),
-                          selected: _role == r,
-                          onSelected: (_) => setState(() => _role = r),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Роль нужна только при первой регистрации.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                ] else ...[
-                  TextField(
-                    key: const Key('login_code'),
-                    controller: _code,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      labelText: 'Код из СМС',
-                      prefixIcon: Icon(Icons.sms_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    key: const Key('login_submit'),
-                    onPressed: _busy ? null : _verify,
-                    child: Text(_busy ? 'Проверяем…' : 'Войти'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    key: const Key('login_change_phone'),
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() {
-                              _codeSent = false;
-                              _error = null;
-                            }),
-                    child: const Text('Изменить номер'),
-                  ),
-                ],
-                if (_error != null)
-                  Container(
-                    key: const Key('login_error'),
-                    margin: const EdgeInsets.only(top: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline,
-                            color: AppColors.error),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(_error!.message)),
-                      ],
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
         ),
       );
+
+  Widget _hero() => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const BrandMark(size: 76, onDark: true),
+            const SizedBox(height: 16),
+            const Text(
+              'АВАТАР',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Используем силу с умом',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.82), fontSize: 15),
+            ),
+          ],
+        ),
+      );
+
+  Widget _sheet() => Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(
+            24, 28, 24, 24 + MediaQuery.paddingOf(context).bottom),
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _codeSent ? 'Введите код' : 'Вход по номеру телефона',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _codeSent
+                  ? 'Отправили СМС на ${_phone.text}'
+                  : 'Пришлём СМС с кодом — пароль не нужен.',
+              style: const TextStyle(color: AppColors.muted, height: 1.35),
+            ),
+            const SizedBox(height: 20),
+            if (!_codeSent) ...[
+              TextField(
+                key: const Key('login_phone'),
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[+\d()\- ]')),
+                  _RuPhoneFormatter(),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Телефон',
+                  hintText: '+7(983)-355-95-99',
+                  helperText: 'Формат: +7(983)-355-95-99',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const Key('login_send_code'),
+                onPressed: _busy ? null : _sendCode,
+                child: Text(_busy ? 'Отправляем…' : 'Получить код'),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  for (final r in const [UserRole.client, UserRole.porter]) ...[
+                    if (r == UserRole.porter) const SizedBox(width: 10),
+                    Expanded(child: _roleCard(r)),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Роль нужна только при первой регистрации.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
+            ] else ...[
+              TextField(
+                key: const Key('login_code'),
+                controller: _code,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: 6,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 10,
+                ),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Код из СМС',
+                  counterText: '',
+                  floatingLabelAlignment: FloatingLabelAlignment.center,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                key: const Key('login_submit'),
+                onPressed: _busy ? null : _verify,
+                child: Text(_busy ? 'Проверяем…' : 'Войти'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                key: const Key('login_change_phone'),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() {
+                          _codeSent = false;
+                          _error = null;
+                        }),
+                child: const Text('Изменить номер'),
+              ),
+            ],
+            if (_error != null)
+              AppBanner(
+                key: const Key('login_error'),
+                margin: const EdgeInsets.only(top: 16),
+                message: _error!.message,
+              ),
+          ],
+        ),
+      );
+
+  Widget _roleCard(UserRole r) {
+    final selected = _role == r;
+    final isClient = r == UserRole.client;
+    return Material(
+      color: selected ? AppColors.brandBlueSoft : AppColors.surface,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        key: Key('login_role_${r.name}'),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: () => setState(() => _role = r),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(
+              color: selected ? AppColors.brandBlue : AppColors.border,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isClient
+                    ? Icons.inventory_2_outlined
+                    : Icons.fitness_center_outlined,
+                size: 22,
+                color: selected ? AppColors.brandBlue : AppColors.muted,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isClient ? 'Я заказчик' : 'Я грузчик',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: selected ? AppColors.brandBlueDeep : AppColors.ink,
+                  ),
+                ),
+              ),
+              if (selected)
+                const Icon(Icons.check_circle,
+                    size: 18, color: AppColors.brandBlue),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
