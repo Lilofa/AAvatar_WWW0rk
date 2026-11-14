@@ -115,6 +115,12 @@ abstract final class Failures {
         details: detail == null ? null : {'detail': detail},
       );
 
+  static AppFailure rateLimited() => const AppFailure(
+        code: FailureCode.rateLimited,
+        message: 'Слишком много попыток. Подождите минуту и повторите.',
+        retryable: false,
+      );
+
   static AppFailure unknown(Object e) => AppFailure(
         code: FailureCode.unknown,
         message: 'Что-то пошло не так. Попробуйте ещё раз.',
@@ -171,6 +177,12 @@ abstract final class Failures {
   static AppFailure stageAlreadySet() => const AppFailure(
         code: FailureCode.stageAlreadySet,
         message: 'Этап уже отмечен.',
+      );
+
+  static AppFailure forbidden() => const AppFailure(
+        code: FailureCode.forbidden,
+        message: 'Доступ запрещён. Обратитесь в поддержку.',
+        retryable: false,
       );
 
   static AppFailure unauthorized() => const AppFailure(

@@ -19,6 +19,9 @@ Future<void> runWithSentry({
       options.environment =
           const bool.fromEnvironment('dart.vm.product') ? 'production' : 'dev';
       options.release = 'avatar-app@1.0.0';
+      // Телефоны/имена/адреса — персональные данные: в Sentry не отправляем.
+      options.sendDefaultPii = false;
+      options.attachScreenshot = false;
     },
     appRunner: () {
       AppMonitor.sink = (e) {

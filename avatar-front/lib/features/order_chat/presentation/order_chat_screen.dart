@@ -284,6 +284,11 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
             size: 40, color: mine ? Colors.white : AppColors.faint),
       );
     }
+    // Только https: вложение приходит от другого пользователя, http/другие
+    // схемы не грузим (трекинг-пиксели, подмена содержимого по сети).
+    if (Uri.tryParse(url)?.scheme != 'https') {
+      return const Icon(Icons.broken_image_outlined);
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Image.network(

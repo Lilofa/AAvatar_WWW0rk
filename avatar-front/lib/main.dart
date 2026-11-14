@@ -16,6 +16,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/home_shell.dart';
+import 'core/security/secure_session_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'features/splash/presentation/splash_screen.dart';
 import 'data/mock_orders_repository.dart';
@@ -33,14 +34,49 @@ const String _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 Future<void> main() async => runApp(await buildApp());
 
 /// Сборка приложения с выбором репозитория (mock vs Supabase).
+///
+/// 🔒 В release-сборке mock ЗАПРЕЩЁН: у него вход «любой код», и забытые
+/// --dart-define превратили бы боевое приложение в демо без авторизации.
+/// Без SUPABASE_URL/SUPABASE_ANON_KEY релиз показывает экран ошибки конфигурации.
 Future<Widget> buildApp() async {
+  final configured = _supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty;
+  const isRelease = bool.fromEnvironment('dart.vm.product');
+  if (!configured && isRelease) {
+    return const _MisconfiguredApp();
+  }
   OrdersRepository repository = MockOrdersRepository();
-  if (_supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty) {
+  if (configured) {
     WidgetsFlutterBinding.ensureInitialized();
-    await Supabase.initialize(url: _supabaseUrl, publishableKey: _supabaseAnonKey);
+    await Supabase.initialize(
+      url: _supabaseUrl,
+      publishableKey: _supabaseAnonKey,
+      authOptions: FlutterAuthClientOptions(
+        localStorage: SecureSessionStorage(),
+      ),
+    );
     repository = SupabaseOrdersRepository(Supabase.instance.client);
   }
   return AvatarApp(repository: repository);
+}
+
+class _MisconfiguredApp extends StatelessWidget {
+  const _MisconfiguredApp();
+
+  @override
+  Widget build(BuildContext context) => const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Сборка не настроена: нет адреса сервера.\n'
+                'Установите актуальную версию приложения.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class AvatarApp extends StatelessWidget {

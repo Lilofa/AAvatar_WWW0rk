@@ -23,6 +23,9 @@ dependencies:
   supabase_flutter: ^2.8.0
   image_picker: ^1.1.2
   sentry_flutter: ^8.14.0
+  # Сессия Supabase (access/refresh-токены) — в Keychain (iOS) / Keystore (Android),
+  # а не в открытых SharedPreferences.
+  flutter_secure_storage: ^9.2.2
   # Стиль работы с Riverpod фиксирует Коля — пока не добавляю,
   # чтобы не разошлись версии. См. REQUEST_to_Kolya.md, раздел 4.
 

@@ -30,8 +30,9 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
+enable_anonymous_sign_ins = false
 refresh_token_reuse_interval = 10
-enable_signup = true
+enable_signup = false          # пользователи создаются ТОЛЬКО edge-функцией verify-sms
 
 [auth.sms]
 enable_signup = false
