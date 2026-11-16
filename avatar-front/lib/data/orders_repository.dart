@@ -99,6 +99,10 @@ abstract interface class OrdersRepository {
     String? fullName,
   });
   Stream<UserProfile?> watchCurrentUser();
+
+  /// Выход: сессия стирается ЛОКАЛЬНО всегда (даже без сети), сервер
+  /// уведомляется по возможности. Не бросает — выйти должно получаться всегда.
+  Future<void> signOut();
   Future<PorterProfile> getPorterProfile({required String userId});
   Future<String?> getReferralCode({required String userId});
 

@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import '../../../core/error/app_failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
+import '../../../core/ui/sign_out.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
@@ -59,7 +60,10 @@ class _DispatcherScreenState extends State<DispatcherScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Пульт диспетчера')),
+        appBar: AppBar(
+          title: const Text('Пульт диспетчера'),
+          actions: const [SignOutButton(), SizedBox(width: 8)],
+        ),
         body: _body(),
       );
 

@@ -470,6 +470,9 @@ class MockOrdersRepository implements OrdersRepository {
   Future<void> sendSmsCode({required String phone}) => _guard(() async {});
 
   @override
+  Future<void> signOut() async {}
+
+  @override
   Future<AuthResult> verifySmsCode({
     required String phone,
     required String code,

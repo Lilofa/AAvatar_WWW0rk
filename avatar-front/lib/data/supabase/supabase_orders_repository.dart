@@ -122,6 +122,16 @@ class SupabaseOrdersRepository implements OrdersRepository {
   // ═══════════════════════════════════════════════════════════
 
   @override
+  Future<void> signOut() async {
+    _profileCache.clear();
+    try {
+      // gotrue стирает локальную сессию ДО сетевого вызова, поэтому даже
+      // без интернета пользователь выходит; ошибку сети просто глотаем.
+      await _client.auth.signOut();
+    } catch (_) {}
+  }
+
+  @override
   Future<void> sendSmsCode({required String phone}) => _guard(() async {
         await _invokeJson('send-sms', {'phone': phone});
       });

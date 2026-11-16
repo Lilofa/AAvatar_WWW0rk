@@ -18,6 +18,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/home_shell.dart';
 import 'core/security/secure_session_storage.dart';
 import 'core/theme/app_theme.dart';
+import 'core/ui/sign_out.dart';
 import 'features/splash/presentation/splash_screen.dart';
 import 'data/mock_orders_repository.dart';
 import 'data/orders_repository.dart';
@@ -132,15 +133,35 @@ class _AuthGateState extends State<AuthGate> {
 
   bool get _isMock => widget.repository is MockOrdersRepository;
 
+  Future<void> _signOut() async {
+    await widget.repository.signOut();
+    // Supabase-ветку перестроит onAuthStateChange (signedOut), mock — флаг.
+    if (_isMock && mounted) setState(() => _mockAuthed = false);
+  }
+
+  Widget _shell() => SignOutProvider(
+        onSignOut: _signOut,
+        child: HomeShell(
+          // новый ключ на каждый вход: вкладки и кэш экрана не переживают выход
+          key: ValueKey(_sessionEpoch),
+          repository: widget.repository,
+        ),
+      );
+
+  int _sessionEpoch = 0;
+
   @override
   Widget build(BuildContext context) {
     if (_isMock) {
       return _mockAuthed
-          ? HomeShell(repository: widget.repository)
+          ? _shell()
           : LoginScreen(
               key: const Key('auth_login'),
               repository: widget.repository,
-              onAuthenticated: (_) => setState(() => _mockAuthed = true),
+              onAuthenticated: (_) => setState(() {
+                _sessionEpoch++;
+                _mockAuthed = true;
+              }),
             );
     }
     return StreamBuilder<AuthState>(
@@ -151,13 +172,14 @@ class _AuthGateState extends State<AuthGate> {
       ),
       builder: (context, snap) {
         if (snap.data?.session == null) {
+          _sessionEpoch++;
           return LoginScreen(
             key: const Key('auth_login'),
             repository: widget.repository,
             onAuthenticated: (_) {},
           );
         }
-        return HomeShell(repository: widget.repository);
+        return _shell();
       },
     );
   }

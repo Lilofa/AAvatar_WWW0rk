@@ -207,7 +207,7 @@ DECLARE
   k text;
 BEGIN
   IF current_user IN ('authenticated', 'anon')
-     AND public.current_user_role() NOT IN ('dispatcher', 'admin') THEN
+     AND COALESCE(public.current_user_role()::text, '') NOT IN ('dispatcher', 'admin') THEN
     v_new := to_jsonb(NEW);
     v_old := to_jsonb(OLD);
     FOREACH k IN ARRAY v_free LOOP

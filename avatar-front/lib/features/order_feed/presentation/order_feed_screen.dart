@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import '../../../core/error/app_failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
+import '../../../core/ui/sign_out.dart';
 import '../../../data/mock_orders_repository.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
@@ -113,6 +114,7 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
               icon: const Icon(Icons.receipt_long),
               onPressed: widget.onOpenMyClientOrders,
             ),
+          const SignOutButton(),
           const SizedBox(width: 8),
         ],
       ),
