@@ -44,6 +44,28 @@ jobs:
           cache-dependency-path: |
             avatar-front/android/*.gradle*
             avatar-front/android/gradle/wrapper/gradle-wrapper.properties
+      - name: Maven Central mirror for Gradle
+        # GitHub-раннеры ловят 429 от repo.maven.apache.org. Init-скрипт ставит
+        # зеркало Maven Central (Google) ПЕРВЫМ во все репозитории всех сборок,
+        # включая встроенную сборку flutter_tools.
+        working-directory: .
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/maven-mirror.gradle <<'GRADLE'
+          def mirrorUrl = 'https://maven-central.storage-download.googleapis.com/maven2/'
+          def mirrorFirst = { handler ->
+            if (handler.findByName('MavenCentralMirror') == null) {
+              def repo = handler.maven { name = 'MavenCentralMirror'; url = mirrorUrl }
+              handler.remove(repo)
+              handler.addFirst(repo)
+            }
+          }
+          beforeSettings { settings -> mirrorFirst(settings.pluginManagement.repositories) }
+          allprojects { project ->
+            mirrorFirst(project.buildscript.repositories)
+            mirrorFirst(project.repositories)
+          }
+          GRADLE
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -88,6 +110,29 @@ jobs:
           cache-dependency-path: |
             avatar-front/android/*.gradle*
             avatar-front/android/gradle/wrapper/gradle-wrapper.properties
+      - name: Maven Central mirror for Gradle
+        if: env.HAS_STAGING == 'true'
+        # GitHub-раннеры ловят 429 от repo.maven.apache.org. Init-скрипт ставит
+        # зеркало Maven Central (Google) ПЕРВЫМ во все репозитории всех сборок,
+        # включая встроенную сборку flutter_tools.
+        working-directory: .
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/maven-mirror.gradle <<'GRADLE'
+          def mirrorUrl = 'https://maven-central.storage-download.googleapis.com/maven2/'
+          def mirrorFirst = { handler ->
+            if (handler.findByName('MavenCentralMirror') == null) {
+              def repo = handler.maven { name = 'MavenCentralMirror'; url = mirrorUrl }
+              handler.remove(repo)
+              handler.addFirst(repo)
+            }
+          }
+          beforeSettings { settings -> mirrorFirst(settings.pluginManagement.repositories) }
+          allprojects { project ->
+            mirrorFirst(project.buildscript.repositories)
+            mirrorFirst(project.repositories)
+          }
+          GRADLE
       - uses: subosito/flutter-action@v2
         if: env.HAS_STAGING == 'true'
         with:
