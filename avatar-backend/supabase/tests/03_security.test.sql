@@ -1,6 +1,6 @@
 -- pgTAP: регрессия на находки аудита 15.11.2026 (миграция 20261115120000).
 BEGIN;
-SELECT plan(12);
+SELECT plan(11);
 
 -- Пользователи: client, porter, второй client.
 INSERT INTO auth.users (id, email, phone, encrypted_password, email_confirmed_at, created_at, updated_at, raw_user_meta_data)
