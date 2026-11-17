@@ -63,6 +63,10 @@ jobs:
           }
           beforeSettings { settings -> mirrorFirst(settings.pluginManagement.repositories) }
           settingsEvaluated { settings ->
+            // Без своих pluginManagement-репозиториев Gradle берёт Plugin Portal по
+            // умолчанию; раз мы добавили зеркало, портал надо вернуть явно.
+            def pm = settings.pluginManagement.repositories
+            if (pm.findByName('Gradle Central Plugin Repository') == null) pm.gradlePluginPortal()
             def drm = settings.dependencyResolutionManagement
             mirrorFirst(drm.repositories)
             def projectRepos = drm.repositoriesMode.get() == RepositoriesMode.PREFER_PROJECT
@@ -136,6 +140,10 @@ jobs:
           }
           beforeSettings { settings -> mirrorFirst(settings.pluginManagement.repositories) }
           settingsEvaluated { settings ->
+            // Без своих pluginManagement-репозиториев Gradle берёт Plugin Portal по
+            // умолчанию; раз мы добавили зеркало, портал надо вернуть явно.
+            def pm = settings.pluginManagement.repositories
+            if (pm.findByName('Gradle Central Plugin Repository') == null) pm.gradlePluginPortal()
             def drm = settings.dependencyResolutionManagement
             mirrorFirst(drm.repositories)
             def projectRepos = drm.repositoriesMode.get() == RepositoriesMode.PREFER_PROJECT
