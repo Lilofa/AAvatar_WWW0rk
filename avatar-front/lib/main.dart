@@ -29,6 +29,12 @@ import 'features/order_active/presentation/order_active_screen.dart';
 const String _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const String _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
+/// Демо-сборка для бета-тестов: весь сервер заменён mock-данными, вход —
+/// любым кодом, кроме 0000. В базу ничего не уходит. Включается ЯВНО:
+///   flutter build apk --dart-define=DEMO_MODE=true
+/// На экране всегда висит лента «ДЕМО», чтобы её не спутали с боевой.
+const bool _demoMode = bool.fromEnvironment('DEMO_MODE');
+
 /// Точка входа БЕЗ мониторинга (тесты, mock-стенд, dev).
 /// Прод с Sentry собирается через main_sentry.dart:
 ///   flutter build apk -t lib/main_sentry.dart --dart-define=SENTRY_DSN=...
@@ -36,17 +42,18 @@ Future<void> main() async => runApp(await buildApp());
 
 /// Сборка приложения с выбором репозитория (mock vs Supabase).
 ///
-/// 🔒 В release-сборке mock ЗАПРЕЩЁН: у него вход «любой код», и забытые
-/// --dart-define превратили бы боевое приложение в демо без авторизации.
-/// Без SUPABASE_URL/SUPABASE_ANON_KEY релиз показывает экран ошибки конфигурации.
+/// 🔒 В release-сборке mock запрещён, если его не попросили явно
+/// (DEMO_MODE=true): забытые --dart-define иначе превратили бы боевое
+/// приложение в демо без авторизации. Без SUPABASE_URL/SUPABASE_ANON_KEY
+/// и без DEMO_MODE релиз показывает экран ошибки конфигурации.
 Future<Widget> buildApp() async {
   final configured = _supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty;
   const isRelease = bool.fromEnvironment('dart.vm.product');
-  if (!configured && isRelease) {
+  if (!configured && isRelease && !_demoMode) {
     return const _MisconfiguredApp();
   }
   OrdersRepository repository = MockOrdersRepository();
-  if (configured) {
+  if (configured && !_demoMode) {
     WidgetsFlutterBinding.ensureInitialized();
     await Supabase.initialize(
       url: _supabaseUrl,
@@ -98,6 +105,15 @@ class AvatarApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: AppTheme.light(),
+        // Демо-сборка помечена всегда, на любом экране.
+        builder: _demoMode
+            ? (context, child) => Banner(
+                  message: 'ДЕМО',
+                  location: BannerLocation.topEnd,
+                  color: const Color(0xFFC62828),
+                  child: child!,
+                )
+            : null,
         home: const bool.fromEnvironment('dart.vm.product')
             ? SplashGate(child: AuthGate(repository: repository))
             : AuthGate(repository: repository),

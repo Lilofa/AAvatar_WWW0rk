@@ -1,0 +1,98 @@
+name: Android beta APK
+
+# Готовые APK для бета-теста — скачиваются со страницы запуска (Actions → этот
+# workflow → нужный запуск → Artifacts). Собирать у себя ничего не нужно.
+#
+#   avatar-demo-apk     — ДЕМО: без сервера, mock-данные, вход любым кодом (кроме 0000).
+#                         В базу ничего не уходит. На экране лента «ДЕМО».
+#   avatar-staging-apk  — настоящий staging-сервер. Собирается, только если заданы
+#                         секреты STAGING_SUPABASE_URL и STAGING_SUPABASE_ANON_KEY.
+#                         Вход тестовыми номерами (TEST_LOGIN_PHONES на staging).
+#
+# Обе сборки — profile (подпись debug-ключом): для установки «из файла» на
+# тестовые телефоны, НЕ для магазинов. Магазинный релиз — BUILD-release-apk.ps1.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, develop, "claude/**"]
+    paths: ["avatar-front/**", ".github/workflows/android-beta-apk.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-beta-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: avatar-front
+
+jobs:
+  demo:
+    name: Demo APK (no server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --concurrency=1
+      - name: Build demo APK
+        run: flutter build apk --profile --dart-define=DEMO_MODE=true
+      - name: Name the file
+        run: |
+          mkdir -p out
+          cp build/app/outputs/flutter-apk/app-profile.apk "out/avatar-demo-${GITHUB_SHA::7}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avatar-demo-apk
+          path: avatar-front/out/*.apk
+          retention-days: 30
+
+  staging:
+    name: Staging APK (real test server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      HAS_STAGING: ${{ secrets.STAGING_SUPABASE_URL != '' && secrets.STAGING_SUPABASE_ANON_KEY != '' }}
+    steps:
+      - name: Skip notice
+        if: env.HAS_STAGING != 'true'
+        working-directory: .
+        run: echo "::notice::Секреты STAGING_SUPABASE_URL / STAGING_SUPABASE_ANON_KEY не заданы — staging APK пропущен."
+      - uses: actions/checkout@v4
+        if: env.HAS_STAGING == 'true'
+      - uses: actions/setup-java@v4
+        if: env.HAS_STAGING == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        if: env.HAS_STAGING == 'true'
+        with:
+          channel: stable
+          cache: true
+      - if: env.HAS_STAGING == 'true'
+        run: flutter pub get
+      - name: Build staging APK
+        if: env.HAS_STAGING == 'true'
+        run: |
+          flutter build apk --profile \
+            --dart-define=SUPABASE_URL="${{ secrets.STAGING_SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.STAGING_SUPABASE_ANON_KEY }}"
+          mkdir -p out
+          cp build/app/outputs/flutter-apk/app-profile.apk "out/avatar-staging-${GITHUB_SHA::7}.apk"
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_STAGING == 'true'
+        with:
+          name: avatar-staging-apk
+          path: avatar-front/out/*.apk
+          retention-days: 30
