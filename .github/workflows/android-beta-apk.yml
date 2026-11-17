@@ -52,6 +52,7 @@ jobs:
         run: |
           mkdir -p ~/.gradle/init.d
           cat > ~/.gradle/init.d/maven-mirror.gradle <<'GRADLE'
+          import org.gradle.api.initialization.resolve.RepositoriesMode
           def mirrorUrl = 'https://maven-central.storage-download.googleapis.com/maven2/'
           def mirrorFirst = { handler ->
             if (handler.findByName('MavenCentralMirror') == null) {
@@ -61,9 +62,14 @@ jobs:
             }
           }
           beforeSettings { settings -> mirrorFirst(settings.pluginManagement.repositories) }
-          allprojects { project ->
-            mirrorFirst(project.buildscript.repositories)
-            mirrorFirst(project.repositories)
+          settingsEvaluated { settings ->
+            def drm = settings.dependencyResolutionManagement
+            mirrorFirst(drm.repositories)
+            def projectRepos = drm.repositoriesMode.get() == RepositoriesMode.PREFER_PROJECT
+            settings.gradle.allprojects { project ->
+              mirrorFirst(project.buildscript.repositories)
+              if (projectRepos) mirrorFirst(project.repositories)
+            }
           }
           GRADLE
       - uses: subosito/flutter-action@v2
@@ -119,6 +125,7 @@ jobs:
         run: |
           mkdir -p ~/.gradle/init.d
           cat > ~/.gradle/init.d/maven-mirror.gradle <<'GRADLE'
+          import org.gradle.api.initialization.resolve.RepositoriesMode
           def mirrorUrl = 'https://maven-central.storage-download.googleapis.com/maven2/'
           def mirrorFirst = { handler ->
             if (handler.findByName('MavenCentralMirror') == null) {
@@ -128,9 +135,14 @@ jobs:
             }
           }
           beforeSettings { settings -> mirrorFirst(settings.pluginManagement.repositories) }
-          allprojects { project ->
-            mirrorFirst(project.buildscript.repositories)
-            mirrorFirst(project.repositories)
+          settingsEvaluated { settings ->
+            def drm = settings.dependencyResolutionManagement
+            mirrorFirst(drm.repositories)
+            def projectRepos = drm.repositoriesMode.get() == RepositoriesMode.PREFER_PROJECT
+            settings.gradle.allprojects { project ->
+              mirrorFirst(project.buildscript.repositories)
+              if (projectRepos) mirrorFirst(project.repositories)
+            }
           }
           GRADLE
       - uses: subosito/flutter-action@v2
