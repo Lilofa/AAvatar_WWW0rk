@@ -39,6 +39,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          # кеш Gradle: меньше скачиваний с Maven Central (он отвечает 429 на часть запросов)
+          cache: gradle
+          cache-dependency-path: |
+            avatar-front/android/*.gradle*
+            avatar-front/android/gradle/wrapper/gradle-wrapper.properties
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -46,7 +51,10 @@ jobs:
       - run: flutter pub get
       - run: flutter test --concurrency=1
       - name: Build demo APK
-        run: flutter build apk --profile --dart-define=DEMO_MODE=true
+        # одна повторная попытка: Maven Central иногда отвечает 429 Too Many Requests
+        run: |
+          flutter build apk --profile --dart-define=DEMO_MODE=true \
+            || (sleep 60 && flutter build apk --profile --dart-define=DEMO_MODE=true)
       - name: Name the file
         run: |
           mkdir -p out
@@ -75,6 +83,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          # кеш Gradle: меньше скачиваний с Maven Central (он отвечает 429 на часть запросов)
+          cache: gradle
+          cache-dependency-path: |
+            avatar-front/android/*.gradle*
+            avatar-front/android/gradle/wrapper/gradle-wrapper.properties
       - uses: subosito/flutter-action@v2
         if: env.HAS_STAGING == 'true'
         with:
