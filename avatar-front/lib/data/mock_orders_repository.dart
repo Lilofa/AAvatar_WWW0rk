@@ -56,6 +56,24 @@ abstract final class MockControls {
   /// Авто-решение диспетчера по отклику через 6 секунд (Future.delayed).
   /// В виджет-тестах выключать: висящий Timer ломает инвариант testWidgets.
   static bool simulateDispatcher = true;
+
+  /// Роли демо-пользователя. Меняются переключателем в демо-сборке
+  /// («Роль: …» в красной полосе сверху), приложение перестраивает вкладки.
+  static const Set<UserRole> allDemoRoles = {
+    UserRole.porter,
+    UserRole.dispatcher,
+    UserRole.client,
+  };
+  static Set<UserRole> demoRoles = allDemoRoles;
+  static final StreamController<Set<UserRole>> _roles =
+      StreamController<Set<UserRole>>.broadcast();
+
+  static Stream<Set<UserRole>> get demoRolesChanges => _roles.stream;
+
+  static void setDemoRoles(Set<UserRole> roles) {
+    demoRoles = roles;
+    _roles.add(roles);
+  }
 }
 
 class MockOrdersRepository implements OrdersRepository {
@@ -506,12 +524,17 @@ class MockOrdersRepository implements OrdersRepository {
   // Демо-профиль со ВСЕМИ ролями: в mock-режиме хотим видеть все три
   // вкладки shell'а (Лента / Мои заказы / Диспетчер). В live роли приходят
   // из profiles.roles после входа.
-  Stream<UserProfile?> watchCurrentUser() => Stream.value(const UserProfile(
+  Stream<UserProfile?> watchCurrentUser() async* {
+    yield _profile(MockControls.demoRoles);
+    yield* MockControls.demoRolesChanges.map(_profile);
+  }
+
+  static UserProfile _profile(Set<UserRole> roles) => UserProfile(
         id: _me,
         phone: '+7 913 000-00-00',
-        roles: {UserRole.porter, UserRole.dispatcher, UserRole.client},
+        roles: roles,
         name: 'Артём',
-      ));
+      );
 
   @override
   Future<PorterProfile> getPorterProfile({required String userId}) => _guard(() async {

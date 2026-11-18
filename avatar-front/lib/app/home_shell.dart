@@ -34,7 +34,13 @@ class HomeShell extends StatelessWidget {
                   child: CircularProgressIndicator(key: Key('shell_loading'))),
             );
           }
-          return _Shell(profile: snap.data!, repository: repository);
+          final profile = snap.data!;
+          // Новые роли (демо-переключатель) = вкладки и их экраны с нуля.
+          return _Shell(
+            key: ValueKey(profile.roles.map((r) => r.name).join(',')),
+            profile: profile,
+            repository: repository,
+          );
         },
       );
 }
@@ -48,7 +54,7 @@ class _Tab {
 }
 
 class _Shell extends StatefulWidget {
-  const _Shell({required this.profile, required this.repository});
+  const _Shell({super.key, required this.profile, required this.repository});
 
   final UserProfile profile;
   final OrdersRepository repository;
@@ -119,30 +125,48 @@ class _ShellState extends State<_Shell> {
   @override
   Widget build(BuildContext context) {
     final tabs = _tabs;
+    if (tabs.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Text(
+              'У аккаунта нет роли. Обратитесь к диспетчеру.',
+              key: Key('shell_no_role'),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
     final index = _index.clamp(0, tabs.length - 1);
     return Scaffold(
       body: IndexedStack(
         index: index,
         children: [for (final t in tabs) t.child],
       ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.border)),
-        ),
-        child: NavigationBar(
-          key: const Key('shell_nav'),
-          selectedIndex: index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: [
-            for (final t in tabs)
-              NavigationDestination(
-                icon: Icon(t.icon),
-                selectedIcon: Icon(t.activeIcon),
-                label: t.label,
+      // NavigationBar требует минимум две вкладки: у заказчика или
+      // диспетчера с одной ролью нижней панели просто нет.
+      bottomNavigationBar: tabs.length < 2
+          ? null
+          : DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppColors.border)),
               ),
-          ],
-        ),
-      ),
+              child: NavigationBar(
+                key: const Key('shell_nav'),
+                selectedIndex: index,
+                onDestinationSelected: (i) => setState(() => _index = i),
+                destinations: [
+                  for (final t in tabs)
+                    NavigationDestination(
+                      icon: Icon(t.icon),
+                      selectedIcon: Icon(t.activeIcon),
+                      label: t.label,
+                    ),
+                ],
+              ),
+            ),
     );
   }
 }

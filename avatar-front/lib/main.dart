@@ -19,6 +19,7 @@ import 'app/home_shell.dart';
 import 'core/security/secure_session_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'core/ui/sign_out.dart';
+import 'features/order_flow/domain/enums.dart';
 import 'features/splash/presentation/splash_screen.dart';
 import 'data/mock_orders_repository.dart';
 import 'data/orders_repository.dart';
@@ -87,13 +88,27 @@ class _MisconfiguredApp extends StatelessWidget {
       );
 }
 
-class AvatarApp extends StatelessWidget {
-  const AvatarApp({super.key, required this.repository});
+class AvatarApp extends StatefulWidget {
+  const AvatarApp({super.key, required this.repository, this.demoMode = _demoMode});
 
   final OrdersRepository repository;
 
+  /// Демо-полоса с переключателем ролей. По умолчанию — из DEMO_MODE;
+  /// параметр нужен виджет-тестам.
+  final bool demoMode;
+
+  @override
+  State<AvatarApp> createState() => _AvatarAppState();
+}
+
+class _AvatarAppState extends State<AvatarApp> {
+  final _navigator = GlobalKey<NavigatorState>();
+
+  OrdersRepository get repository => widget.repository;
+
   @override
   Widget build(BuildContext context) => MaterialApp(
+        navigatorKey: _navigator,
         title: 'Аватар',
         // Русская локаль: 24-часовой формат и русские date/time-пикеры
         // (баг-репорт 25.09: «Select time / AM / PM» у начальника).
@@ -107,30 +122,10 @@ class AvatarApp extends StatelessWidget {
         theme: AppTheme.light(),
         // Демо-сборка помечена всегда, на любом экране: тонкая полоса НАД
         // приложением. Не угловая лента — та закрывала кнопку «Выйти».
-        builder: _demoMode
+        builder: widget.demoMode
             ? (context, child) => Column(
                   children: [
-                    const Material(
-                      key: Key('demo_strip'),
-                      color: AppColors.error,
-                      child: SafeArea(
-                        bottom: false,
-                        child: SizedBox(
-                          height: 22,
-                          width: double.infinity,
-                          child: Center(
-                            child: Text(
-                              'ДЕМО · данные не сохраняются',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    _DemoStrip(navigator: _navigator),
                     Expanded(
                       child: MediaQuery.removePadding(
                         context: context,
@@ -226,4 +221,99 @@ class _AuthGateState extends State<AuthGate> {
       },
     );
   }
+}
+
+/// Красная полоса демо-сборки над приложением. Нажатие — выбор роли
+/// демо-пользователя: вкладки перестраиваются сразу, данные те же.
+class _DemoStrip extends StatelessWidget {
+  const _DemoStrip({required this.navigator});
+
+  final GlobalKey<NavigatorState> navigator;
+
+  static const _presets = <(String, Set<UserRole>)>[
+    ('Все роли', MockControls.allDemoRoles),
+    ('Заказчик', {UserRole.client}),
+    ('Грузчик', {UserRole.porter}),
+    ('Диспетчер', {UserRole.dispatcher}),
+    ('Админ', {UserRole.admin}),
+  ];
+
+  static String _label(Set<UserRole> roles) {
+    for (final (name, set) in _presets) {
+      if (set.length == roles.length && set.containsAll(roles)) return name;
+    }
+    return roles.map((r) => r.name).join(', ');
+  }
+
+  void _pick() {
+    final ctx = navigator.currentContext;
+    if (ctx == null) return;
+    showModalBottomSheet<void>(
+      context: ctx,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                'Демо: войти как…',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+            ),
+            for (final (name, roles) in _presets)
+              ListTile(
+                key: Key('demo_role_$name'),
+                title: Text(name),
+                subtitle: Text(switch (name) {
+                  'Все роли' => 'Лента, мои заказы, рефералы, пульт',
+                  'Заказчик' => 'Создаёт заявки и следит за ними',
+                  'Грузчик' => 'Лента заказов, отклики, этапы, рефералы',
+                  'Диспетчер' => 'Пульт: отклики, бригада, замена',
+                  _ => 'Пульт диспетчера с правами админа',
+                }),
+                trailing: _label(MockControls.demoRoles) == name
+                    ? const Icon(Icons.check, color: AppColors.brandBlue)
+                    : null,
+                onTap: () {
+                  MockControls.setDemoRoles(roles);
+                  Navigator.pop(sheet);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Material(
+        key: const Key('demo_strip'),
+        color: AppColors.error,
+        child: SafeArea(
+          bottom: false,
+          child: InkWell(
+            onTap: _pick,
+            child: SizedBox(
+              height: 26,
+              width: double.infinity,
+              child: Center(
+                child: StreamBuilder<Set<UserRole>>(
+                  stream: MockControls.demoRolesChanges,
+                  initialData: MockControls.demoRoles,
+                  builder: (context, snap) => Text(
+                    'ДЕМО · роль: ${_label(snap.data ?? MockControls.demoRoles)} ▾',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }

@@ -296,10 +296,15 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
   Widget _orderInfo(Order o, {required Widget status}) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // Wrap, а не Row: на узких телефонах статус + рейтинг + дата
+          // не помещаются в строку и переносятся, а не вылезают за край.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               status,
-              const Spacer(),
               MetaItem(
                 icon: Icons.schedule,
                 text: _dt(o.timeStart),
