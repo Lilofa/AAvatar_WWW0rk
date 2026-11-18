@@ -9,6 +9,11 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## 2026-11-18
 
+### Release plan and budget updated
+- Budget now includes a **server in Russia** (required by the personal-data
+  law, ~2 000–3 500 ₽/month) instead of Supabase Pro long-term, a lawyer, and
+  the free Roskomnadzor notification. Copy in `docs/release-plan.md`.
+
 ### Demo you can open in the browser
 - The demo app now runs on a web page in a phone frame, next to a short guide
   (how to log in, how to switch roles, what's new). No APK download needed.
