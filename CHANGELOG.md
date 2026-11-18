@@ -9,6 +9,11 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## 2026-11-18
 
+### Budget spreadsheet for the client
+- New Russian spreadsheet «Аватар — бюджет запуска» (Claude Sheets): costs by
+  item with formulas — change the dollar rate, the intermediary fee or SMS
+  logins per month and every total updates; second tab with the dates.
+
 ### Release plan and budget updated
 - Budget now includes a **server in Russia** (required by the personal-data
   law, ~2 000–3 500 ₽/month) instead of Supabase Pro long-term, a lawyer, and
