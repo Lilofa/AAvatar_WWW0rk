@@ -59,6 +59,7 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
 
   Order? _order;
   String? _myId;
+  Set<UserRole> _myRoles = const {};
   List<OrderStage> _stages = const [];
   StageAvailability _avail = const StageAvailability(
     available: [],
@@ -105,7 +106,12 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
   void _subscribe() {
     _subs.add(
       widget.repository.watchCurrentUser().listen((u) {
-        if (mounted) setState(() => _myId = u?.id);
+        if (mounted) {
+          setState(() {
+            _myId = u?.id;
+            _myRoles = u?.roles ?? const {};
+          });
+        }
       }),
     );
     _subs.add(
@@ -222,12 +228,7 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
               key: const Key('active_chat_btn'),
               tooltip: 'Чат по заказу',
               icon: const Icon(Icons.chat_bubble_outline),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => OrderChatScreen(
-                  repository: widget.repository,
-                  orderId: widget.orderId,
-                ),
-              )),
+              onPressed: () => _openChat(order),
             ),
           ),
         ],
@@ -277,6 +278,34 @@ class _OrderActiveScreenState extends State<OrderActiveScreen> {
   }
 
   /// Синяя «шапка» заказа: статус, адрес, время, состав.
+  /// Чат — только участникам заказа: заказчику, бригаде, диспетчеру/админу.
+  /// Так же решает сервер (RLS messages); здесь — понятное объяснение
+  /// вместо «Недостаточно прав», пока отклик ещё не одобрен.
+  bool _canChat(Order order) =>
+      (_myId != null && order.clientId == _myId) ||
+      _takers.any((t) => t.porter.id == _myId) ||
+      _myRoles.contains(UserRole.dispatcher) ||
+      _myRoles.contains(UserRole.admin);
+
+  void _openChat(Order order) {
+    if (!_canChat(order)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        key: Key('active_chat_locked'),
+        content: Text(
+          'Чат откроется, когда диспетчер одобрит ваш отклик и вы попадёте '
+          'в бригаду. Сейчас он доступен заказчику, бригаде и диспетчеру.',
+        ),
+      ));
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => OrderChatScreen(
+        repository: widget.repository,
+        orderId: widget.orderId,
+      ),
+    ));
+  }
+
   Widget _summaryCard(Order order) => BrandSurface(
         borderRadius: BorderRadius.circular(AppRadius.lg),
         padding: const EdgeInsets.all(18),

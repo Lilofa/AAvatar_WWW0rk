@@ -133,8 +133,11 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
       });
     } on AppFailure catch (f) {
       if (mounted) {
+        final text = f.code == FailureCode.forbidden
+            ? 'Писать в чат могут заказчик, бригада и диспетчер этого заказа.'
+            : f.message;
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(f.message)));
+            .showSnackBar(SnackBar(content: Text(text)));
       }
     } finally {
       if (mounted) setState(() => _sending = false);

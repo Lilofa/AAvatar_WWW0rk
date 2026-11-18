@@ -82,3 +82,20 @@ export async function codeHash(phone: string, code: string): Promise<string> {
   const pepper = Deno.env.get("SMS_CODE_PEPPER") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   return await sha256Hex(`${phone}:${code}:${pepper}`);
 }
+
+/// ТЕСТОВЫЕ НОМЕРА (бета-тест на staging, демо-вход для проверяющих Apple/Google).
+/// Задаются ТОЛЬКО секретами окружения:
+///   TEST_LOGIN_PHONES = "+79990000001,+79990000002"
+///   TEST_LOGIN_CODE   = "<6–8 цифр>"
+/// Для этих номеров SMS не отправляется и не стоит денег, а входят они по
+/// TEST_LOGIN_CODE. Любой другой номер работает как обычно. Без обоих секретов
+/// (или с кодом не из 6–8 цифр) режим выключен — так должно быть на проде,
+/// кроме одного номера для ревьюеров сторов со сложным кодом.
+export function testLogin(phone: string): { code: string } | null {
+  const code = (Deno.env.get("TEST_LOGIN_CODE") ?? "").trim();
+  // 6–8 цифр: столько принимает поле кода в приложении и verify-sms.
+  if (!/^\d{6,8}$/.test(code)) return null;
+  const phones = (Deno.env.get("TEST_LOGIN_PHONES") ?? "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  return phones.includes(phone) ? { code } : null;
+}

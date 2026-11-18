@@ -5,7 +5,7 @@
 /// рутованном устройстве. Здесь токены лежат в защищённом хранилище ОС:
 ///  * iOS — Keychain, доступ после первой разблокировки, без переноса на
 ///    другое устройство и без iCloud-синхронизации;
-///  * Android — EncryptedSharedPreferences (ключ в Android Keystore).
+///  * Android — шифрование AES-GCM, ключ в Android Keystore.
 library;
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -15,7 +15,8 @@ class SecureSessionStorage extends LocalStorage {
   SecureSessionStorage({FlutterSecureStorage? storage})
       : _storage = storage ??
             const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
+              // По умолчанию: AES-GCM, ключ в Android Keystore (API 23+).
+              aOptions: AndroidOptions(),
               iOptions: IOSOptions(
                 accessibility: KeychainAccessibility.first_unlock_this_device,
               ),

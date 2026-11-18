@@ -23,6 +23,9 @@
 | M3 | 🟡 Средне | Токены сессии в открытых SharedPreferences | Keychain / Android Keystore |
 | M4 | 🟡 Средне | Release без `--dart-define` стартовал на mock («вход любым кодом»); release мог подписаться debug-ключом | Релиз без конфига показывает ошибку; Gradle прерывает release без `key.properties` |
 | M5 | 🟡 Средне | Android: бэкап данных, cleartext, пользовательские CA | `allowBackup=false`, только HTTPS, system CA |
+| P1 | 🟠 Высоко | Заблокированный (`is_blocked`) пользователь продолжал работать | `current_user_role()` возвращает NULL для заблокированных |
+| P2 | 🟠 Высоко | `submit_review`: оценка любому грузчику платформы + двойной пересчёт рейтинга | Только член бригады заказа; рейтинг считает триггер |
+| P3 | 🟢 Низко | `respond_to_order` принимал любой ETA и отклик на свой заказ | ETA 1–240, свой заказ — запрет |
 | L1 | 🟢 Низко | Sentry мог слать PII; вложения чата по любым схемам; шаблон `.env.migration` в git; workflows без `permissions` | `sendDefaultPii=false`, только `https`, шаблон → `.env.migration.example`, `permissions: contents: read` |
 
 ## Что нужно сделать вам (не делается кодом)
@@ -49,6 +52,9 @@
 6. **GitHub:** защита ветки `main` (PR + review), включить Dependabot и Secret scanning.
 
 ## Остаточные риски (осознанно не менял)
+
+Полный список с результатами атак — `docs/pentest-2026-11-16.md`.
+
 
 - **`price` при создании заявки задаёт клиент**; итог пересчитывает триггер `check_order_filled`
   при одобрении — убедитесь, что пересчёт покрывает все пути (проверить с Матвеем).

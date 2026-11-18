@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import '../../../core/error/app_failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
+import '../../../core/ui/sign_out.dart';
 import '../../../data/orders_repository.dart';
 import '../../../data/supabase/mappers.dart';
 import '../../create_order/presentation/create_order_screen.dart';
@@ -88,7 +89,10 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Кабинет')),
+        appBar: AppBar(
+          title: const Text('Кабинет'),
+          actions: const [SignOutButton(), SizedBox(width: 8)],
+        ),
         body: _body(),
         floatingActionButton: FloatingActionButton.extended(
           key: const Key('client_create_fab'),
@@ -292,10 +296,15 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
   Widget _orderInfo(Order o, {required Widget status}) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // Wrap, а не Row: на узких телефонах статус + рейтинг + дата
+          // не помещаются в строку и переносятся, а не вылезают за край.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               status,
-              const Spacer(),
               MetaItem(
                 icon: Icons.schedule,
                 text: _dt(o.timeStart),

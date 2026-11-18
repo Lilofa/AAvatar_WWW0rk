@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import '../../../core/error/app_failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
+import '../../../core/ui/sign_out.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
 
@@ -75,7 +76,10 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Рефералы')),
+        appBar: AppBar(
+          title: const Text('Рефералы'),
+          actions: const [SignOutButton(), SizedBox(width: 8)],
+        ),
         body: _body(),
       );
 

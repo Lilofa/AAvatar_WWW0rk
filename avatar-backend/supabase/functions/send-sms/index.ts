@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { clientIp, codeHash, json, preflight, randomCode, readBody } from "../_shared/http.ts";
+import { clientIp, codeHash, json, preflight, randomCode, readBody, testLogin } from "../_shared/http.ts";
 
 const COOLDOWN_SEC = 60; // между двумя SMS на один номер
 const MAX_PER_PHONE_HOUR = 5;
@@ -15,6 +15,9 @@ serve(async (req) => {
   if (!/^\+7\d{10}$/.test(phone)) {
     return json(req, { ok: false, error: "Invalid phone format" }, 400);
   }
+
+  // Тестовый номер: SMS не шлём (и не платим), код известен заранее.
+  if (testLogin(phone)) return json(req, { ok: true });
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,

@@ -45,6 +45,9 @@ void main() {
     ));
     await settle(tester, 2);
     await tester.enterText(find.byKey(const Key('login_phone')), '9833559599');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
     await settle(tester, 2);
     await tester.pumpAndSettle();
     expect(
@@ -53,6 +56,9 @@ void main() {
     );
     // лишние цифры не проглатываются молча: поле физически не вместит 12
     await tester.enterText(find.byKey(const Key('login_phone')), '98335595991234');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
     await settle(tester, 2);
     expect(
       tester.widget<TextField>(find.byKey(const Key('login_phone'))).controller!.text,
@@ -92,6 +98,9 @@ void main() {
     ));
     await settle(tester, 2);
     await tester.enterText(find.byKey(const Key('login_phone')), '92372');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
     await settle(tester, 2);
     // кнопка есть, но шаг кода не открыт и не откроется от отправки
     expect(find.byKey(const Key('login_code')), findsNothing);
@@ -122,6 +131,11 @@ void main() {
     await tester.pumpWidget(AvatarApp(repository: repo));
     await settle(tester, 2);
     await tester.enterText(find.byKey(const Key('login_phone')), '+79991234567');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
+    await tester.ensureVisible(find.byKey(const Key('login_send_code')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('login_send_code')));
     await settle(tester);
     await tester.enterText(find.byKey(const Key('login_code')), '1234');
@@ -152,6 +166,11 @@ void main() {
     await tester.pumpWidget(AvatarApp(repository: repo));
     await settle(tester, 2);
     await tester.enterText(find.byKey(const Key('login_phone')), '+79991234567');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
+    await tester.ensureVisible(find.byKey(const Key('login_send_code')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('login_send_code')));
     await settle(tester);
     await tester.enterText(find.byKey(const Key('login_code')), '1234');
@@ -196,6 +215,11 @@ void main() {
     await tester.pumpWidget(AvatarApp(repository: MockOrdersRepository()));
     await settle(tester, 2);
     await tester.enterText(find.byKey(const Key('login_phone')), '+79991234567');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
+    await tester.ensureVisible(find.byKey(const Key('login_send_code')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('login_send_code')));
     await settle(tester);
     await tester.enterText(find.byKey(const Key('login_code')), '1234');

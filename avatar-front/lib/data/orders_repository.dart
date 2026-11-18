@@ -97,8 +97,16 @@ abstract interface class OrdersRepository {
     required String code,
     UserRole? role,
     String? fullName,
+
+    /// Версия текста согласия на обработку ПДн, которое пользователь принял
+    /// (хранится в профиле как доказательство).
+    String? consentVersion,
   });
   Stream<UserProfile?> watchCurrentUser();
+
+  /// Выход: сессия стирается ЛОКАЛЬНО всегда (даже без сети), сервер
+  /// уведомляется по возможности. Не бросает — выйти должно получаться всегда.
+  Future<void> signOut();
   Future<PorterProfile> getPorterProfile({required String userId});
   Future<String?> getReferralCode({required String userId});
 
