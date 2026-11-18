@@ -142,6 +142,7 @@ class SupabaseOrdersRepository implements OrdersRepository {
     required String code,
     UserRole? role,
     String? fullName,
+    String? consentVersion,
   }) =>
       _guard(() async {
         final data = await _invokeJson('verify-sms', {
@@ -149,6 +150,7 @@ class SupabaseOrdersRepository implements OrdersRepository {
           'code': code,
           if (role != null) 'role': role.name,
           if (fullName != null) 'full_name': fullName,
+          if (consentVersion != null) 'consent_version': consentVersion,
         });
         final tokenHash = data['token_hash'] as String?;
         if (tokenHash == null) throw Failures.unauthorized();

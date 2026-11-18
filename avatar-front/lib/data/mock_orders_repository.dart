@@ -478,6 +478,7 @@ class MockOrdersRepository implements OrdersRepository {
     required String code,
     UserRole? role,
     String? fullName,
+    String? consentVersion,
   }) =>
       _guard(() async {
         if (code.trim() == '0000') {

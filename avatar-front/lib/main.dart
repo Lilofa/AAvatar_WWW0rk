@@ -105,13 +105,40 @@ class AvatarApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: AppTheme.light(),
-        // Демо-сборка помечена всегда, на любом экране.
+        // Демо-сборка помечена всегда, на любом экране: тонкая полоса НАД
+        // приложением. Не угловая лента — та закрывала кнопку «Выйти».
         builder: _demoMode
-            ? (context, child) => Banner(
-                  message: 'ДЕМО',
-                  location: BannerLocation.topEnd,
-                  color: const Color(0xFFC62828),
-                  child: child!,
+            ? (context, child) => Column(
+                  children: [
+                    const Material(
+                      key: Key('demo_strip'),
+                      color: AppColors.error,
+                      child: SafeArea(
+                        bottom: false,
+                        child: SizedBox(
+                          height: 22,
+                          width: double.infinity,
+                          child: Center(
+                            child: Text(
+                              'ДЕМО · данные не сохраняются',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: MediaQuery.removePadding(
+                        context: context,
+                        removeTop: true,
+                        child: child!,
+                      ),
+                    ),
+                  ],
                 )
             : null,
         home: const bool.fromEnvironment('dart.vm.product')

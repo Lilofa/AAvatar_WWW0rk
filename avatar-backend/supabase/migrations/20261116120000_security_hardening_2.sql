@@ -116,3 +116,43 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.respond_to_order(uuid, int) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.respond_to_order(uuid, int) TO authenticated;
+
+-- =============================================================================
+-- P4  152-ФЗ: доказательство согласия на обработку ПДн.
+--     verify-sms записывает, когда и на какую версию текста пользователь
+--     дал согласие (экран входа). Сам пользователь эти поля менять не может.
+-- =============================================================================
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS pd_consent_at      timestamptz,
+  ADD COLUMN IF NOT EXISTS pd_consent_version text;
+
+CREATE OR REPLACE FUNCTION public.guard_profile_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') THEN
+    IF NEW.id              IS DISTINCT FROM OLD.id
+       OR NEW.phone        IS DISTINCT FROM OLD.phone
+       OR NEW.role         IS DISTINCT FROM OLD.role
+       OR NEW.roles        IS DISTINCT FROM OLD.roles
+       OR NEW.active_role  IS DISTINCT FROM OLD.active_role
+       OR NEW.pool         IS DISTINCT FROM OLD.pool
+       OR NEW.rating       IS DISTINCT FROM OLD.rating
+       OR NEW.reviews_count   IS DISTINCT FROM OLD.reviews_count
+       OR NEW.completed_count IS DISTINCT FROM OLD.completed_count
+       OR NEW.balance      IS DISTINCT FROM OLD.balance
+       OR NEW.referral_code IS DISTINCT FROM OLD.referral_code
+       OR NEW.invited_by   IS DISTINCT FROM OLD.invited_by
+       OR NEW.is_blocked   IS DISTINCT FROM OLD.is_blocked
+       OR NEW.created_at   IS DISTINCT FROM OLD.created_at
+       OR NEW.pd_consent_at      IS DISTINCT FROM OLD.pd_consent_at
+       OR NEW.pd_consent_version IS DISTINCT FROM OLD.pd_consent_version
+    THEN
+      RAISE EXCEPTION 'PERMISSION_DENIED: protected profile field' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;

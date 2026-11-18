@@ -32,6 +32,11 @@ void main() {
 
   Future<void> login(WidgetTester tester) async {
     await tester.enterText(find.byKey(const Key('login_phone')), '+79991234567');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
+    await tester.ensureVisible(find.byKey(const Key('login_send_code')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('login_send_code')));
     await settle(tester);
     await tester.enterText(find.byKey(const Key('login_code')), '1234');
@@ -57,6 +62,11 @@ void main() {
     await tester.pumpWidget(AvatarApp(repository: MockOrdersRepository()));
     await settle(tester, 2);
     await tester.enterText(find.byKey(const Key('login_phone')), '+79991234567');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
+    await tester.ensureVisible(find.byKey(const Key('login_send_code')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('login_send_code')));
     await settle(tester);
     await tester.enterText(find.byKey(const Key('login_code')), '0000');

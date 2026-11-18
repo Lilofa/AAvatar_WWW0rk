@@ -21,6 +21,11 @@ serve(async (req) => {
   const role = SELF_ROLES.includes(String(body?.role)) ? String(body!.role) : "client";
   const fullName = typeof body?.full_name === "string" ? body.full_name.trim().slice(0, 120) || null : null;
   const invitedBy = typeof body?.invited_by === "string" && UUID_RE.test(body.invited_by) ? body.invited_by : null;
+  // Версия текста согласия на обработку ПДн (152-ФЗ), принятого на экране входа.
+  const consentVersion = typeof body?.consent_version === "string" &&
+      /^[0-9A-Za-z._-]{1,32}$/.test(body.consent_version)
+    ? body.consent_version
+    : null;
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -97,6 +102,12 @@ serve(async (req) => {
       });
       if (createErr) throw createErr;
       userId = created.user.id;
+    }
+
+    if (consentVersion) {
+      await admin.from("profiles")
+        .update({ pd_consent_at: new Date().toISOString(), pd_consent_version: consentVersion })
+        .eq("id", userId);
     }
 
     const { data: link, error: linkErr } = await admin.auth.admin.generateLink({

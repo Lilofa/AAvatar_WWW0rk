@@ -97,6 +97,10 @@ abstract interface class OrdersRepository {
     required String code,
     UserRole? role,
     String? fullName,
+
+    /// Версия текста согласия на обработку ПДн, которое пользователь принял
+    /// (хранится в профиле как доказательство).
+    String? consentVersion,
   });
   Stream<UserProfile?> watchCurrentUser();
 

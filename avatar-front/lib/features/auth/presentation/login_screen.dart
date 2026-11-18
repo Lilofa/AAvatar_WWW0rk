@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/error/app_failure.dart';
+import '../../../core/legal/consent_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
@@ -73,6 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _busy = false;
   AppFailure? _error;
   UserRole _role = UserRole.client;
+  bool _consent = false;
 
   @override
   void dispose() {
@@ -94,6 +96,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool get _phoneValid => isRuPhoneValid(_phone.text);
 
   Future<void> _sendCode() async {
+    // 152-ФЗ: согласие — ДО отправки номера на сервер.
+    if (!_consent) {
+      setState(() => _error = Failures.validation('consent',
+          'Чтобы продолжить, дайте согласие на обработку персональных данных.'));
+      return;
+    }
     if (!_phoneValid) {
       setState(() => _error = Failures.validation('phone',
           'Введите номер целиком: +7(983)-355-95-99 — 10 цифр после +7.'));
@@ -128,6 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
         phone: _phoneNormalized,
         code: _code.text.trim(),
         role: _role,
+        consentVersion: consentVersion,
       );
       if (mounted) widget.onAuthenticated(res);
     } on AppFailure catch (f) {
@@ -244,7 +253,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              _consentRow(),
+              const SizedBox(height: 12),
               FilledButton(
                 key: const Key('login_send_code'),
                 onPressed: _busy ? null : _sendCode,
@@ -309,6 +320,90 @@ class _LoginScreenState extends State<LoginScreen> {
                 message: _error!.message,
               ),
           ],
+        ),
+      );
+
+  Widget _consentRow() => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: Checkbox(
+              key: const Key('login_consent'),
+              value: _consent,
+              onChanged: (v) => setState(() {
+                _consent = v ?? false;
+                if (_consent && _error?.code == FailureCode.validation) {
+                  _error = null;
+                }
+              }),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Wrap(
+                children: [
+                  const Text('Я даю ',
+                      style: TextStyle(fontSize: 13, color: AppColors.inkSoft)),
+                  GestureDetector(
+                    key: const Key('login_consent_open'),
+                    onTap: _showConsent,
+                    child: const Text(
+                      'согласие на обработку персональных данных',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.brandBlue,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const Text(' и подтверждаю, что мне есть 18 лет',
+                      style: TextStyle(fontSize: 13, color: AppColors.inkSoft)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Future<void> _showConsent() => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) => SafeArea(
+          child: ConstrainedBox(
+            constraints:
+                BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.85),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(consentTitle,
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 12),
+                  const Text(consentText,
+                      style: TextStyle(fontSize: 14, height: 1.45)),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    key: const Key('login_consent_accept'),
+                    onPressed: () {
+                      setState(() {
+                        _consent = true;
+                        _error = null;
+                      });
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Согласен(на)'),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       );
 

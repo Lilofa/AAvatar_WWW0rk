@@ -21,6 +21,11 @@ void main() {
   Future<void> login(WidgetTester tester) async {
     await tester.enterText(
         find.byKey(const Key('login_phone')), '+79991234567');
+    await tester.ensureVisible(find.byKey(const Key('login_consent')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent')));
+    await tester.ensureVisible(find.byKey(const Key('login_send_code')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('login_send_code')));
     await settle(tester);
     await tester.enterText(find.byKey(const Key('login_code')), '1234');
@@ -69,5 +74,34 @@ void main() {
           find.byKey(const Key('sign_out_btn')).hitTestable(), findsOneWidget,
           reason: 'вкладка $tab');
     }
+  });
+
+  testWidgets('152-ФЗ: без согласия на обработку ПДн код не запрашивается',
+      (tester) async {
+    await tester.pumpWidget(AvatarApp(repository: MockOrdersRepository()));
+    await settle(tester);
+    await tester.enterText(
+        find.byKey(const Key('login_phone')), '+79991234567');
+    await tester.ensureVisible(find.byKey(const Key('login_send_code')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_send_code')));
+    await settle(tester);
+    expect(find.byKey(const Key('login_error')), findsOneWidget);
+    expect(find.byKey(const Key('login_code')), findsNothing);
+
+    // Текст согласия открывается и принимается из шторки.
+    await tester.ensureVisible(find.byKey(const Key('login_consent_open')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent_open')));
+    await settle(tester);
+    await tester.ensureVisible(find.byKey(const Key('login_consent_accept')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_consent_accept')));
+    await settle(tester);
+    await tester.ensureVisible(find.byKey(const Key('login_send_code')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('login_send_code')));
+    await settle(tester);
+    expect(find.byKey(const Key('login_code')), findsOneWidget);
   });
 }
