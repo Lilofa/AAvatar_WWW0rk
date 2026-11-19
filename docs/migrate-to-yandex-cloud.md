@@ -144,15 +144,8 @@ supabase storage cp -r ./backup/orders  ss:///orders  --experimental
 supabase storage cp -r ./backup/avatars ss:///avatars --experimental
 ```
 
-Ссылки на фото в сообщениях чата содержат адрес старого проекта. После переноса
-заменить его в базе:
-
-```sql
-UPDATE public.messages
-SET attachment_url = replace(attachment_url,
-      'https://<старый-ref>.supabase.co', 'https://api.avatar-app.ru')
-WHERE attachment_url LIKE 'https://<старый-ref>.supabase.co%';
-```
+Ссылки на фото в чате после миграции `20261119120000` хранятся без адреса сервера
+(`storage://orders/…`), поэтому менять их в базе не нужно.
 
 ## 5. Перенести edge-функции
 

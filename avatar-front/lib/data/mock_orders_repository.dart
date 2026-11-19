@@ -1403,6 +1403,10 @@ class MockOrdersRepository implements OrdersRepository {
     return 'mock://orders/$orderId/$fileName';
   }
 
+  @override
+  Future<String?> resolveAttachmentUrl(String attachmentUrl) async =>
+      attachmentUrl;
+
   Future<void> dispose() async {
     await _feedCtrl.close();
     for (final c in _stages.values) {

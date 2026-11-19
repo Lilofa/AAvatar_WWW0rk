@@ -287,11 +287,36 @@ class _OrderChatScreenState extends State<OrderChatScreen> {
             size: 40, color: mine ? Colors.white : AppColors.faint),
       );
     }
-    // Только https: вложение приходит от другого пользователя, http/другие
-    // схемы не грузим (трекинг-пиксели, подмена содержимого по сети).
-    if (Uri.tryParse(url)?.scheme != 'https') {
-      return const Icon(Icons.broken_image_outlined);
-    }
+    // Фото лежат в приватном бакете: получаем временную ссылку у сервера
+    // (только участникам заказа). Внешние ссылки не грузим вообще.
+    return FutureBuilder<String?>(
+      future: _resolved.putIfAbsent(
+          url, () => widget.repository.resolveAttachmentUrl(url)),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            key: Key('chat_attachment_loading'),
+            width: 200,
+            height: 120,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+        final real = snap.data;
+        // Только https: http/другие схемы не грузим (трекинг, подмена по сети).
+        if (real == null || Uri.tryParse(real)?.scheme != 'https') {
+          return const Icon(Icons.broken_image_outlined,
+              key: Key('chat_attachment_unavailable'));
+        }
+        return _networkPhoto(real);
+      },
+    );
+  }
+
+  /// Кеш запросов подписанных ссылок, чтобы не дёргать сервер при каждой
+  /// перерисовке списка.
+  final Map<String, Future<String?>> _resolved = {};
+
+  Widget _networkPhoto(String url) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Image.network(

@@ -5,6 +5,10 @@ import { clientIp, codeHash, json, preflight, randomCode, readBody, testLogin } 
 const COOLDOWN_SEC = 60; // между двумя SMS на один номер
 const MAX_PER_PHONE_HOUR = 5;
 const MAX_PER_IP_HOUR = 20;
+// Потолок расходов на SMS (чек-лист п. 7): сколько SMS всего в сутки на весь
+// проект. Защищает баланс SMS.ru от ботов с тысяч IP. Настраивается секретом
+// SMS_DAILY_LIMIT; по умолчанию 500 (≈ 2 500 ₽ при ~5 ₽ за SMS).
+const SMS_DAILY_LIMIT = Math.max(1, Number(Deno.env.get("SMS_DAILY_LIMIT") ?? "500") || 500);
 
 serve(async (req) => {
   const early = preflight(req);
@@ -48,6 +52,15 @@ serve(async (req) => {
       if ((ipCount ?? 0) >= MAX_PER_IP_HOUR) {
         return json(req, { ok: false, error: "Too many requests" }, 429);
       }
+    }
+
+    const dayAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const { count: dayCount } = await admin
+      .from("sms_sends").select("id", { count: "exact", head: true })
+      .gte("created_at", dayAgo);
+    if ((dayCount ?? 0) >= SMS_DAILY_LIMIT) {
+      console.error(`send-sms: daily SMS cap ${SMS_DAILY_LIMIT} reached`);
+      return json(req, { ok: false, error: "SMS temporarily unavailable" }, 429);
     }
 
     // --- код: CSPRNG, в базе только хеш ---

@@ -9,6 +9,18 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## 2026-11-19
 
+### Security checklist (12 items) — `docs/security-12-checklist.md`
+- **Order photos are private now.** Before, anyone with a photo link could open
+  it without logging in. Now the chat shows photos through 1-hour links that the
+  server gives only to people in that order. A message can only attach a photo
+  of its own order.
+- **SMS spending cap**: at most `SMS_DAILY_LIMIT` SMS a day for the whole app
+  (default 500), so bots can't drain the SMS.ru balance.
+- Dependabot opens update PRs for Flutter, npm, Gradle and Actions; 3 Flutter
+  packages patched; npm audit clean; all packages verified to exist.
+- ⚠️ **Found: the repo is public and its old history contains the staging
+  secret (`service_role`) key.** It must be revoked in Supabase now.
+
 ### Guide: move from Supabase cloud to our VPS in Yandex Cloud
 - `docs/migrate-to-yandex-cloud.md`: self-hosted Supabase in Docker on the VPS,
   HTTPS, moving the database with users, files and edge functions, switching
@@ -97,6 +109,7 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## Still open
 
+- **Rotate the leaked staging secret key** and make the repo private.
 - Database migrations from 2026-11-14 and later are **not yet applied to the
   live server** — do this first (staging, then prod).
 - Store blockers: in-app account deletion, reviewer demo login on prod, public
