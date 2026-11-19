@@ -9,6 +9,10 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## 2026-11-19
 
+### iPhone build works again in GitHub Actions
+- GitHub retired the `macos-14` build machine, so the iOS build was cancelled
+  in 1 second on every run. Switched to `macos-15`.
+
 ### Security checklist (12 items) — `docs/security-12-checklist.md`
 - **Order photos are private now.** Before, anyone with a photo link could open
   it without logging in. Now the chat shows photos through 1-hour links that the

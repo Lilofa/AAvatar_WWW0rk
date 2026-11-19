@@ -1,7 +1,7 @@
 # Сборка iOS-приложения
 
 iOS собирается **только на macOS с Xcode** (ограничение Apple). С Windows/Linux — через
-GitHub Actions (`.github/workflows/ios-build.yml`, раннер `macos-14`) или на любом Mac.
+GitHub Actions (`.github/workflows/ios-build.yml`, раннер `macos-15`) или на любом Mac.
 
 Что уже настроено в проекте (`avatar-front/ios`):
 

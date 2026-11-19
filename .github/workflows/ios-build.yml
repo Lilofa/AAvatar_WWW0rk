@@ -25,7 +25,7 @@ defaults:
 jobs:
   unsigned:
     name: Tests + unsigned build
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
     name: Signed IPA (TestFlight)
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/ios-v')
     needs: unsigned
-    runs-on: macos-14
+    runs-on: macos-15
     environment: ios-release          # требует ручного одобрения, если так настроено в репозитории
     env:
       HAS_ASC_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID != '' }}
