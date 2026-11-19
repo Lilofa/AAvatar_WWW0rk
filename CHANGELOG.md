@@ -7,6 +7,14 @@ Try the latest demo in the browser (no install): see the "Аватар демо"
 link in the chat, or download the APK from GitHub → Actions → **Android beta APK**
 → latest green run → Artifacts.
 
+## 2026-11-19
+
+### Budget: own VPS, no Supabase bill
+- We already have our own VPS and don't pay for Supabase, so the paid
+  Supabase plan and the rented server are gone from the budget (sheet, plan
+  doc, `docs/release-plan.md`). Monthly cost is now SMS only. To do: move the
+  database to the VPS and check that it is located in Russia.
+
 ## 2026-11-18
 
 ### Budget spreadsheet for the client
