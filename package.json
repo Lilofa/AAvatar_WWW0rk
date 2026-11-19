@@ -15,7 +15,7 @@
     "diff": "supabase db diff"
   },
   "devDependencies": {
-    "@types/node": "^26.5.1",
+    "@types/node": "^26.6.6",
     "supabase": "^1.200.0",
     "ts-node": "^10.9.2",
     "typescript": "^7.0.2"
