@@ -12,6 +12,8 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 ### iPhone build works again in GitHub Actions
 - GitHub retired the `macos-14` build machine, so the iOS build was cancelled
   in 1 second on every run. Switched to `macos-15`.
+- Removed the unused CocoaPods `Podfile`: current Flutter gets all iPhone
+  libraries via Swift Package Manager, and the leftover Podfile broke the build.
 
 ### Security checklist (12 items) — `docs/security-12-checklist.md`
 - **Order photos are private now.** Before, anyone with a photo link could open

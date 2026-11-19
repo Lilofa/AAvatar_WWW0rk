@@ -13,7 +13,6 @@ cd "$(dirname "$0")/avatar-front"
 flutter pub get
 flutter test --concurrency=1                       # тесты — обязательный гейт
 
-( cd ios && pod install --repo-update )
 
 flutter build ipa --release -t lib/main_sentry.dart \
   --export-options-plist="$EXPORT_OPTIONS" \

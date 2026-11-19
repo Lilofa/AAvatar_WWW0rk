@@ -8,13 +8,14 @@ GitHub Actions (`.github/workflows/ios-build.yml`, раннер `macos-15`) ил
 | Что | Значение |
 |---|---|
 | Bundle ID | `ru.avatar.avatarApp` |
-| Минимальная iOS | 15.0 (Podfile + проект) |
+| Минимальная iOS | 15.0 (проект Xcode) |
 | Имя на экране | «Аватар» |
 | Разрешения | фото (`NSPhotoLibraryUsageDescription`), камера — тексты на русском |
 | Сеть | только HTTPS (ATS без исключений) |
 | Экспорт-комплаенс | `ITSAppUsesNonExemptEncryption = false` (только стандартный HTTPS) |
 | Privacy manifest | `Runner/PrivacyInfo.xcprivacy` (обязателен для App Store) |
 | Сессия входа | Keychain (`flutter_secure_storage`), не SharedPreferences |
+| Зависимости | Swift Package Manager (CocoaPods не нужен) |
 | Ориентация | iPhone — портрет; iPad — все |
 
 ## Разово (нужен платный Apple Developer Program, $99/год)
@@ -34,7 +35,7 @@ export SUPABASE_ANON_KEY='<publishable-ключ прод-проекта>'
 ./BUILD-ios.sh
 ```
 
-Скрипт прогоняет тесты, ставит Pods и собирает `build/ios/ipa/*.ipa` с боевым
+Скрипт прогоняет тесты и собирает `build/ios/ipa/*.ipa` с боевым
 `SUPABASE_URL` (по умолчанию прод `qkcxfnfyjdesmaotsmya`; staging — `SUPABASE_URL=...`).
 Без `SUPABASE_URL/ANON_KEY` release-сборка **не запустится** на mock-данных, а покажет экран
 «Сборка не настроена» — так сделано специально (иначе вход принимал бы любой код).
