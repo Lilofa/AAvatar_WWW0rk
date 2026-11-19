@@ -10,9 +10,10 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 ## 2026-11-19
 
 ### Budget: own VPS, no Supabase bill
-- We already have our own VPS and don't pay for Supabase, so the paid
-  Supabase plan and the rented server are gone from the budget (sheet, plan
-  doc, `docs/release-plan.md`). Monthly cost is now SMS only. To do: move the
+- We already have our own VPS (4 352,77 ₽ a month) and don't pay for
+  Supabase, so the paid Supabase plan is gone from the budget and the server
+  row shows the real VPS price (sheet, plan doc, `docs/release-plan.md`).
+  Monthly cost is about 8 400–11 400 ₽: VPS plus SMS. To do: move the
   database to the VPS and check that it is located in Russia.
 
 ## 2026-11-18
