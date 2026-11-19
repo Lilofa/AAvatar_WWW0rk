@@ -154,8 +154,8 @@ abstract interface class OrdersRepository {
   // ── 7. ЧАТ ПО ЗАКАЗУ ──────────────────────────────────────
   Stream<List<ChatMessage>> watchOrderChat({required String orderId, int limit = 50});
 
-  /// [attachmentUrl] — публичная ссылка на фото из бакета 'orders'
-  /// (uploadOrderPhoto). Бэк: колонка messages.attachment_url (миграция
+  /// [attachmentUrl] — ссылка на фото из uploadOrderPhoto
+  /// (storage://orders/<orderId>/<file>; бакет приватный). Бэк: колонка messages.attachment_url (миграция
   /// 20260930120000, предложил агент, применяет Матвей).
   Future<void> sendOrderChatMessage({
     required String orderId,
@@ -203,12 +203,18 @@ abstract interface class OrdersRepository {
   Future<String> ensureReferralCode();
 
   // ── 10. ФОТО ЗАКАЗА (storage bucket 'orders', миграция 18.09) ──
-  /// Загрузить фото к заказу; возвращает публичный URL для вставки в отзыв/чат.
+  /// Загрузить фото к заказу. Возвращает ссылку `storage://orders/<orderId>/…`
+  /// для messages.attachment_url. Бакет приватный (миграция 20261119120000):
+  /// показывать фото — только через [resolveAttachmentUrl].
   Future<String> uploadOrderPhoto({
     required String orderId,
     required Uint8List bytes,
     required String fileName,
   });
+
+  /// Временная (1 час) https-ссылка для показа вложения. Сервер выдаёт её только
+  /// участникам заказа. null — ссылка не наша / нет доступа / файл удалён.
+  Future<String?> resolveAttachmentUrl(String attachmentUrl);
 }
 
 /// Минимальный профиль текущего пользователя (core-слой, не мой).

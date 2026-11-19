@@ -124,6 +124,7 @@ class SupabaseOrdersRepository implements OrdersRepository {
   @override
   Future<void> signOut() async {
     _profileCache.clear();
+    _signed.clear();
     try {
       // gotrue стирает локальную сессию ДО сетевого вызова, поэтому даже
       // без интернета пользователь выходит; ошибку сети просто глотаем.
@@ -809,7 +810,12 @@ class SupabaseOrdersRepository implements OrdersRepository {
     required String fileName,
   }) =>
       _guard(() async {
-        final path = '$orderId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+        // Имя файла от пользователя в путь не берём как есть: только безопасные символы.
+        final safe = fileName
+            .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_')
+            .replaceAll('..', '_');
+        final path = '$orderId/${DateTime.now().millisecondsSinceEpoch}_'
+            '${safe.isEmpty ? 'photo.jpg' : safe}';
         await _client.storage.from('orders').uploadBinary(
               path,
               bytes,
@@ -818,8 +824,47 @@ class SupabaseOrdersRepository implements OrdersRepository {
                 upsert: false,
               ),
             );
-        return _client.storage.from('orders').getPublicUrl(path);
+        return '$attachmentScheme$path';
       });
+
+  /// Префикс ссылок на приватные фото заказа в messages.attachment_url.
+  static const attachmentScheme = 'storage://orders/';
+
+  /// Путь объекта в бакете 'orders' из ссылки в сообщении, или null.
+  /// Понимает и старые публичные ссылки (до миграции 20261119120000).
+  static String? attachmentPath(String url) {
+    String? path;
+    if (url.startsWith(attachmentScheme)) {
+      path = url.substring(attachmentScheme.length);
+    } else {
+      const legacy = '/storage/v1/object/public/orders/';
+      final i = url.indexOf(legacy);
+      if (i >= 0) path = url.substring(i + legacy.length);
+    }
+    if (path == null || path.isEmpty || path.contains('..')) return null;
+    return path;
+  }
+
+  final Map<String, ({String url, DateTime until})> _signed = {};
+
+  @override
+  Future<String?> resolveAttachmentUrl(String attachmentUrl) async {
+    final path = attachmentPath(attachmentUrl);
+    if (path == null) return null;
+    final hit = _signed[path];
+    if (hit != null && DateTime.now().isBefore(hit.until)) return hit.url;
+    try {
+      final url =
+          await _client.storage.from('orders').createSignedUrl(path, 3600);
+      _signed[path] = (
+        url: url,
+        until: DateTime.now().add(const Duration(minutes: 50)),
+      );
+      return url;
+    } catch (_) {
+      return null; // нет доступа (не участник) или файла нет
+    }
+  }
 }
 
 /// Удобство: первая роль профиля для подписи автора в чате.
