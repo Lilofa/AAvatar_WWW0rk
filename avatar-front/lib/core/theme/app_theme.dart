@@ -5,6 +5,7 @@
 /// отсюда — никаких «магических» Color(0xFF…) в фичах.
 library;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -120,7 +121,10 @@ abstract final class AppTheme {
     return base.copyWith(
       textTheme: text,
       scaffoldBackgroundColor: AppColors.background,
-      splashFactory: InkSparkle.splashFactory,
+      // InkSparkle грузит шейдер-файл; в вебе (демо-страница) берём простую
+      // волну — она не требует отдельных файлов.
+      splashFactory:
+          kIsWeb ? InkRipple.splashFactory : InkSparkle.splashFactory,
       dividerTheme:
           const DividerThemeData(color: AppColors.border, thickness: 1),
       appBarTheme: const AppBarTheme(
