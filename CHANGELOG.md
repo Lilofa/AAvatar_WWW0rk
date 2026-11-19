@@ -9,6 +9,11 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## 2026-11-19
 
+### Guide: move from Supabase cloud to our VPS in Yandex Cloud
+- `docs/migrate-to-yandex-cloud.md`: self-hosted Supabase in Docker on the VPS,
+  HTTPS, moving the database with users, files and edge functions, switching
+  the app, backups. Satisfies the 152-ФЗ data-in-Russia requirement.
+
 ### Budget: own VPS, no Supabase bill
 - We already have our own VPS (4 352,77 ₽ a month) and don't pay for
   Supabase, so the paid Supabase plan is gone from the budget and the server
