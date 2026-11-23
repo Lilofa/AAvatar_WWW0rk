@@ -7,6 +7,29 @@ Try the latest demo in the browser (no install): see the "Аватар демо"
 link in the chat, or download the APK from GitHub → Actions → **Android beta APK**
 → latest green run → Artifacts.
 
+## 2026-11-23
+
+### Privacy policy: final text
+- `docs/legal/privacy-policy.md` rewritten as a complete policy under 152-ФЗ
+  art. 18.1: who we are, whose data, what exactly we collect (and what we
+  don't), purposes with legal bases, who sees what inside the app, outside
+  services with countries (SMS.ru, Yandex Cloud, Nominatim, Sentry, Netlify),
+  cross-border transfer, security, retention periods, rights, account deletion.
+- Checked against the code: the app has **no** push notifications or
+  geolocation, so they are removed from the policy and the consent. Added what
+  was missing: IP address for SMS limits, address search via OpenStreetMap,
+  the website form on Netlify (USA).
+- Login consent updated to match (version `2026-11-23`; users accept it again on
+  the next login).
+- Website page `team-site/privacy.html` regenerated from the new text (it still
+  showed the September draft).
+- Retention promise made true: expired SMS codes and the 30-day SMS log are now
+  deleted automatically every hour (migration `20261123120000`).
+- Only blanks left: operator name, INN/OGRN, address, e-mail, Roskomnadzor
+  number. The comment at the top of the policy lists what must be done before
+  it is published (move to the VPS, fix pentest issue B2, Sentry IP setting,
+  account deletion in the app).
+
 ## 2026-11-19
 
 ### iPhone build works again in GitHub Actions
