@@ -22,6 +22,7 @@ import '../../order_active/presentation/order_active_screen.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
 import '../../order_review/presentation/order_review_screen.dart';
+import '../../worker_application/presentation/worker_application.dart';
 
 class ClientCabinetScreen extends StatefulWidget {
   const ClientCabinetScreen({super.key, required this.repository});
@@ -130,23 +131,36 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
         child: CircularProgressIndicator(key: Key('cab_loading')),
       );
     }
-    if (orders.isEmpty && _work.isEmpty) {
-      return const StateView(
-        icon: Icons.inventory_2_outlined,
-        title: Text('Заказов ещё не было'),
-        body: Text(
-          key: Key('cab_empty'),
-          'Пока пусто.\nСоздайте первую заявку кнопкой «+».',
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
+    final nothingYet = orders.isEmpty && _work.isEmpty;
     return ListView(
       key: const Key('client_orders_list'),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
       children: [
         _header(profile),
+        // Стать грузчиком можно только заявкой отсюда (регистрация — заказчиком).
+        if (!profile.isPorter && !profile.isDispatcher) ...[
+          const SizedBox(height: 16),
+          WorkerApplicationCard(
+            repository: widget.repository,
+            defaultName: profile.name,
+            defaultCity: profile.city,
+          ),
+        ],
         const SizedBox(height: 24),
+        if (nothingYet)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: StateView(
+              icon: Icons.inventory_2_outlined,
+              title: Text('Заказов ещё не было'),
+              body: Text(
+                key: Key('cab_empty'),
+                'Пока пусто.\nСоздайте первую заявку кнопкой «+».',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+        else ...[
         SectionTitle(
           'Мои заказы (как заказчик)',
           key: const Key('cab_client_section'),
@@ -167,6 +181,7 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
             trailing: AppPill(label: '${_work.length}', color: AppColors.muted),
           ),
           for (final o in _work) _workCard(o),
+        ],
         ],
       ],
     );

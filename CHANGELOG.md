@@ -7,6 +7,25 @@ Try the latest demo in the browser (no install): see the "Аватар демо"
 link in the chat, or download the APK from GitHub → Actions → **Android beta APK**
 → latest green run → Artifacts.
 
+## 2026-11-26
+
+### Everyone signs up as a client; porters apply from the cabinet (Artem)
+- The login screen no longer asks «Я заказчик / Я грузчик». Everyone is created
+  as a client; the server ignores any role sent at signup.
+- Cabinet → card **«Работа грузчиком» → «Подать заявку»**: name, city (Томск /
+  Новосибирск), experience, 18+ confirmation. Status shows on the card: on
+  review, rejected (with the reason, can apply again), approved.
+- Dispatcher/admin see **«Заявки в грузчики»** at the top of their screen and
+  approve or reject (with a reason). After approval the person gets the
+  porter tabs without logging out.
+- Server: table `worker_applications` (people see only their own; writes only
+  through checked functions), max 3 applications per 30 days, one at a time.
+- Fixed underneath: the server only looked at one «active» role, so a person
+  who is both client and porter would have lost their own orders or porter
+  actions. Role checks now use `has_role()`.
+- Demo: switch the role strip to «Заказчик», apply in the cabinet, then switch
+  to «Диспетчер» and approve.
+
 ## 2026-11-23
 
 ### Privacy policy: final text

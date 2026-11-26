@@ -14,7 +14,6 @@ import '../../../core/legal/consent_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
-import '../../order_flow/domain/enums.dart';
 
 /// Валидность российского номера: +7 и ровно 10 цифр после.
 /// Вынесено из виджета для регресс-тестов (баг-репорт 25.09).
@@ -73,7 +72,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _codeSent = false;
   bool _busy = false;
   AppFailure? _error;
-  UserRole _role = UserRole.client;
   bool _consent = false;
 
   @override
@@ -135,7 +133,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final res = await widget.repository.verifySmsCode(
         phone: _phoneNormalized,
         code: _code.text.trim(),
-        role: _role,
         consentVersion: consentVersion,
       );
       if (mounted) widget.onAuthenticated(res);
@@ -261,18 +258,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _busy ? null : _sendCode,
                 child: Text(_busy ? 'Отправляем…' : 'Получить код'),
               ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  for (final r in const [UserRole.client, UserRole.porter]) ...[
-                    if (r == UserRole.porter) const SizedBox(width: 10),
-                    Expanded(child: _roleCard(r)),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 14),
               const Text(
-                'Роль нужна только при первой регистрации.',
+                key: Key('login_worker_hint'),
+                'Хотите работать грузчиком? Войдите и подайте заявку '
+                'в личном кабинете.',
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppColors.muted),
               ),
             ] else ...[
@@ -407,52 +398,4 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
-  Widget _roleCard(UserRole r) {
-    final selected = _role == r;
-    final isClient = r == UserRole.client;
-    return Material(
-      color: selected ? AppColors.brandBlueSoft : AppColors.surface,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
-        key: Key('login_role_${r.name}'),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        onTap: () => setState(() => _role = r),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(
-              color: selected ? AppColors.brandBlue : AppColors.border,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                isClient
-                    ? Icons.inventory_2_outlined
-                    : Icons.fitness_center_outlined,
-                size: 22,
-                color: selected ? AppColors.brandBlue : AppColors.muted,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isClient ? 'Я заказчик' : 'Я грузчик',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: selected ? AppColors.brandBlueDeep : AppColors.ink,
-                  ),
-                ),
-              ),
-              if (selected)
-                const Icon(Icons.check_circle,
-                    size: 18, color: AppColors.brandBlue),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

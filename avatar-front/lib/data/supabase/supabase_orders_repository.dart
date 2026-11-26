@@ -141,7 +141,6 @@ class SupabaseOrdersRepository implements OrdersRepository {
   Future<AuthResult> verifySmsCode({
     required String phone,
     required String code,
-    UserRole? role,
     String? fullName,
     String? consentVersion,
   }) =>
@@ -149,7 +148,6 @@ class SupabaseOrdersRepository implements OrdersRepository {
         final data = await _invokeJson('verify-sms', {
           'phone': phone,
           'code': code,
-          if (role != null) 'role': role.name,
           if (fullName != null) 'full_name': fullName,
           if (consentVersion != null) 'consent_version': consentVersion,
         });
@@ -190,9 +188,30 @@ class SupabaseOrdersRepository implements OrdersRepository {
         }
 
         yield await load(_client.auth.currentUser?.id);
-        yield* _client.auth.onAuthStateChange
-            .asyncMap((state) => load(state.session?.user.id));
+        // Профиль перечитываем при смене сессии и по [refreshCurrentUser]
+        // (например, диспетчер одобрил заявку — появилась роль грузчика).
+        final ids = StreamController<String?>();
+        final onAuth = _client.auth.onAuthStateChange
+            .listen((state) => ids.add(state.session?.user.id));
+        final onRefresh = _profileRefresh.stream
+            .listen((_) => ids.add(_client.auth.currentUser?.id));
+        try {
+          yield* ids.stream.asyncMap(load);
+        } finally {
+          await onAuth.cancel();
+          await onRefresh.cancel();
+          await ids.close();
+        }
       });
+
+  final StreamController<void> _profileRefresh =
+      StreamController<void>.broadcast();
+
+  @override
+  Future<void> refreshCurrentUser() async {
+    _profileCache.clear();
+    _profileRefresh.add(null);
+  }
 
   @override
   Future<PorterProfile> getPorterProfile({required String userId}) => _guard(() async {
@@ -825,6 +844,85 @@ class SupabaseOrdersRepository implements OrdersRepository {
               ),
             );
         return '$attachmentScheme$path';
+      });
+
+  // ═══════════════════════════════════════════════════════════
+  // 12. ЗАЯВКА НА РАБОТУ ГРУЗЧИКОМ
+  // ═══════════════════════════════════════════════════════════
+
+  static WorkerApplication _appFromRow(Map<String, dynamic> r,
+          {String? phone}) =>
+      WorkerApplication(
+        id: r['id'] as String,
+        userId: r['user_id'] as String,
+        fullName: (r['full_name'] ?? '') as String,
+        city: (r['city'] ?? '') as String,
+        status: WorkerApplicationStatus.fromWire(r['status'] as String?),
+        experience: r['experience'] as String?,
+        rejectReason: r['reject_reason'] as String?,
+        phone: phone,
+        createdAt: DateTime.tryParse('${r['created_at']}')?.toLocal(),
+      );
+
+  @override
+  Future<WorkerApplication?> myWorkerApplication() => _guard(() async {
+        final uid = _client.auth.currentUser?.id;
+        if (uid == null) throw Failures.unauthorized();
+        final row = await _client
+            .from('worker_applications')
+            .select()
+            .eq('user_id', uid)
+            .order('created_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        return row == null ? null : _appFromRow(row);
+      });
+
+  @override
+  Future<void> submitWorkerApplication({
+    required String fullName,
+    required String city,
+    String? experience,
+  }) =>
+      _guard(() async {
+        await _client.rpc('submit_worker_application', params: {
+          'p_full_name': fullName,
+          'p_city': city,
+          'p_experience': experience,
+        });
+      });
+
+  @override
+  Future<List<WorkerApplication>> pendingWorkerApplications() =>
+      _guard(() async {
+        final rows = await _client
+            .from('worker_applications')
+            .select()
+            .eq('status', 'pending')
+            .order('created_at')
+            .limit(100);
+        final list = List<Map<String, dynamic>>.from(rows);
+        final profiles =
+            await _profilesById(list.map((r) => r['user_id'] as String));
+        return [
+          for (final r in list)
+            _appFromRow(r,
+                phone: profiles[r['user_id']]?['phone'] as String?),
+        ];
+      });
+
+  @override
+  Future<void> reviewWorkerApplication({
+    required String id,
+    required bool approve,
+    String? reason,
+  }) =>
+      _guard(() async {
+        await _client.rpc('review_worker_application', params: {
+          'p_id': id,
+          'p_approve': approve,
+          'p_reason': reason,
+        });
       });
 
   /// Префикс ссылок на приватные фото заказа в messages.attachment_url.

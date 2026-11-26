@@ -295,6 +295,7 @@ UserProfile userProfileFromRow(Map<String, dynamic> row) => UserProfile(
       name: _str(row['full_name']) ?? 'Клиент',
       avatarUrl: _str(row['avatar_url']),
       isActive: !_bool(row['is_blocked']),
+      city: _str(row['city']),
     );
 
 // ─────────────────────────────────────────────────────────────

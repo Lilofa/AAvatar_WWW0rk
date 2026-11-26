@@ -4,9 +4,8 @@ import { codeHash, json, preflight, readBody, safeEqual, testLogin } from "../_s
 
 const MAX_ATTEMPTS = 5;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// Самому себе при регистрации можно выбрать только эти роли.
-// dispatcher/admin выдаёт администратор через service_role.
-const SELF_ROLES = ["client", "porter"];
+// Все регистрируются заказчиками. Грузчик — по заявке из кабинета
+// (submit_worker_application), dispatcher/admin — администратор.
 
 serve(async (req) => {
   const early = preflight(req);
@@ -18,7 +17,6 @@ serve(async (req) => {
   if (!/^\+7\d{10}$/.test(phone) || !/^\d{4,8}$/.test(code)) {
     return json(req, { ok: false, error: "phone and code required" }, 400);
   }
-  const role = SELF_ROLES.includes(String(body?.role)) ? String(body!.role) : "client";
   const fullName = typeof body?.full_name === "string" ? body.full_name.trim().slice(0, 120) || null : null;
   const invitedBy = typeof body?.invited_by === "string" && UUID_RE.test(body.invited_by) ? body.invited_by : null;
   // Версия текста согласия на обработку ПДн (152-ФЗ), принятого на экране входа.
@@ -98,7 +96,7 @@ serve(async (req) => {
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
         email,
         email_confirm: true,
-        user_metadata: { phone, role, full_name: fullName, invited_by: invitedBy },
+        user_metadata: { phone, role: "client", full_name: fullName, invited_by: invitedBy },
       });
       if (createErr) throw createErr;
       userId = created.user.id;

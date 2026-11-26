@@ -494,7 +494,6 @@ class MockOrdersRepository implements OrdersRepository {
   Future<AuthResult> verifySmsCode({
     required String phone,
     required String code,
-    UserRole? role,
     String? fullName,
     String? consentVersion,
   }) =>
@@ -1406,6 +1405,98 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<String?> resolveAttachmentUrl(String attachmentUrl) async =>
       attachmentUrl;
+
+  // ── 12. ЗАЯВКА НА РАБОТУ ГРУЗЧИКОМ ─────────────────────────
+  // Одна чужая заявка уже ждёт диспетчера, чтобы в демо было что одобрять.
+  final List<WorkerApplication> _workerApps = [
+    WorkerApplication(
+      id: 'wa-demo-1',
+      userId: 'client-sergey',
+      fullName: 'Сергей Ковалёв',
+      city: 'Новосибирск',
+      experience: 'Два года грузчиком на складе, есть опыт квартирных переездов.',
+      status: WorkerApplicationStatus.pending,
+      phone: '+7 913 555-12-34',
+      createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+    ),
+  ];
+
+  @override
+  Future<WorkerApplication?> myWorkerApplication() => _guard(() async {
+        final mine = _workerApps.where((a) => a.userId == _me).toList();
+        return mine.isEmpty ? null : mine.last;
+      });
+
+  @override
+  Future<void> submitWorkerApplication({
+    required String fullName,
+    required String city,
+    String? experience,
+  }) =>
+      _guard(() async {
+        if (MockControls.demoRoles.contains(UserRole.porter)) {
+          throw Failures.validation('server', 'Вы уже работаете грузчиком.');
+        }
+        if (_workerApps.any((a) =>
+            a.userId == _me && a.status == WorkerApplicationStatus.pending)) {
+          throw Failures.validation('server', 'Заявка уже на рассмотрении.');
+        }
+        if (fullName.trim().length < 2) {
+          throw Failures.validation('fullName', 'Укажите имя и фамилию.');
+        }
+        if (city.trim().length < 2) {
+          throw Failures.validation('city', 'Укажите город.');
+        }
+        _workerApps.add(WorkerApplication(
+          id: 'wa-${_workerApps.length + 1}',
+          userId: _me,
+          fullName: fullName.trim(),
+          city: city.trim(),
+          experience: (experience?.trim().isEmpty ?? true) ? null : experience!.trim(),
+          status: WorkerApplicationStatus.pending,
+          phone: '+7 913 000-00-00',
+          createdAt: DateTime.now(),
+        ));
+      });
+
+  @override
+  Future<List<WorkerApplication>> pendingWorkerApplications() =>
+      _guard(() async => _workerApps
+          .where((a) => a.status == WorkerApplicationStatus.pending)
+          .toList());
+
+  @override
+  Future<void> reviewWorkerApplication({
+    required String id,
+    required bool approve,
+    String? reason,
+  }) =>
+      _guard(() async {
+        final i = _workerApps.indexWhere((a) => a.id == id);
+        if (i < 0 || _workerApps[i].status != WorkerApplicationStatus.pending) {
+          throw Failures.validation('server', 'Заявка уже рассмотрена.');
+        }
+        final a = _workerApps[i];
+        _workerApps[i] = WorkerApplication(
+          id: a.id,
+          userId: a.userId,
+          fullName: a.fullName,
+          city: a.city,
+          experience: a.experience,
+          phone: a.phone,
+          createdAt: a.createdAt,
+          status: approve
+              ? WorkerApplicationStatus.approved
+              : WorkerApplicationStatus.rejected,
+          rejectReason: approve ? null : reason,
+        );
+        if (approve && a.userId == _me) {
+          MockControls.setDemoRoles({...MockControls.demoRoles, UserRole.porter});
+        }
+      });
+
+  @override
+  Future<void> refreshCurrentUser() async {}
 
   Future<void> dispose() async {
     await _feedCtrl.close();

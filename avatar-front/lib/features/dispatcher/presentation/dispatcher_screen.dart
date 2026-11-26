@@ -17,6 +17,7 @@ import '../../../core/ui/sign_out.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
+import '../../worker_application/presentation/worker_application.dart';
 
 class DispatcherScreen extends StatefulWidget {
   const DispatcherScreen({super.key, required this.repository});
@@ -91,15 +92,22 @@ class _DispatcherScreenState extends State<DispatcherScreen> {
       );
     }
     if (orders.isEmpty) {
-      return const StateView(
-        icon: Icons.task_alt,
-        color: AppColors.success,
-        title: Text('Всё спокойно'),
-        body: Text(
-          key: Key('disp_empty'),
-          'Живых заказов нет.\nНовые заявки появятся здесь.',
-          textAlign: TextAlign.center,
-        ),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          WorkerApplicationsReview(repository: widget.repository),
+          const SizedBox(height: 40),
+          const StateView(
+            icon: Icons.task_alt,
+            color: AppColors.success,
+            title: Text('Всё спокойно'),
+            body: Text(
+              key: Key('disp_empty'),
+              'Живых заказов нет.\nНовые заявки появятся здесь.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       );
     }
     return RefreshIndicator(
@@ -107,10 +115,15 @@ class _DispatcherScreenState extends State<DispatcherScreen> {
       child: ListView.separated(
         key: const Key('disp_list'),
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-        itemCount: orders.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, i) {
-          final o = orders[i];
+        // Сверху — заявки в грузчики (пусто — виджет ничего не рисует).
+        itemCount: orders.length + 1,
+        separatorBuilder: (_, i) =>
+            i == 0 ? const SizedBox.shrink() : const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return WorkerApplicationsReview(repository: widget.repository);
+          }
+          final o = orders[index - 1];
           final statusText = o.status == OrderStatus.new_
               ? 'ждёт бригаду'
               : o.status == OrderStatus.approved

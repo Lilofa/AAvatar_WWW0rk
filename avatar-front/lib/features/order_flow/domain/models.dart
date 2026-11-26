@@ -459,3 +459,44 @@ class PorterLocation {
   final GeoPoint point;
   final DateTime at;
 }
+
+/// Заявка на работу грузчиком (миграция 20261126120000_worker_applications).
+/// Регистрируются все как заказчики; грузчиком человек становится, когда
+/// диспетчер/админ одобрит заявку из личного кабинета.
+enum WorkerApplicationStatus {
+  pending,
+  approved,
+  rejected;
+
+  static WorkerApplicationStatus fromWire(String? s) => switch (s) {
+        'approved' => approved,
+        'rejected' => rejected,
+        _ => pending,
+      };
+}
+
+class WorkerApplication {
+  const WorkerApplication({
+    required this.id,
+    required this.userId,
+    required this.fullName,
+    required this.city,
+    required this.status,
+    this.experience,
+    this.rejectReason,
+    this.phone,
+    this.createdAt,
+  });
+
+  final String id;
+  final String userId;
+  final String fullName;
+  final String city;
+  final WorkerApplicationStatus status;
+  final String? experience;
+  final String? rejectReason;
+
+  /// Телефон заявителя — только в списке для диспетчера.
+  final String? phone;
+  final DateTime? createdAt;
+}
