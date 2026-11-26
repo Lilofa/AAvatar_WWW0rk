@@ -12,6 +12,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/error/app_failure.dart';
+import '../../../core/legal/legal_doc_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
 import '../../../core/ui/sign_out.dart';
@@ -203,6 +204,23 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
           for (final o in _work) _workCard(o),
         ],
         ],
+        const SizedBox(height: 24),
+        Wrap(
+          alignment: WrapAlignment.center,
+          children: [
+            TextButton(
+              key: const Key('cab_privacy_link'),
+              onPressed: () => openLegalDoc(context, LegalDoc.privacy),
+              child: const Text('Политика конфиденциальности'),
+            ),
+            TextButton(
+              key: const Key('cab_terms_link'),
+              onPressed: () => openLegalDoc(context, LegalDoc.terms),
+              child: const Text('Пользовательское соглашение'),
+            ),
+          ],
+        ),
+        Center(child: DeleteAccountButton(repository: widget.repository)),
       ],
     );
   }

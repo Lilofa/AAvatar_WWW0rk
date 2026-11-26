@@ -253,6 +253,11 @@ abstract interface class OrdersRepository {
     PaymentMethod? method,
   });
 
+  /// Удалить аккаунт (Политика, п. 10): edge-функция delete-account стирает
+  /// имя, телефон, переписку и фото, заказы остаются обезличенными для учёта.
+  /// После успеха локальная сессия тоже стирается.
+  Future<void> deleteMyAccount();
+
   /// Перечитать профиль (роли) и отдать его в [watchCurrentUser] —
   /// например, после одобрения заявки.
   Future<void> refreshCurrentUser();

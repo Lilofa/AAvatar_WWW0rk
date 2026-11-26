@@ -40,3 +40,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Политика и соглашение (копии docs/legal, scripts/sync-legal.py).
+  assets:
+    - assets/legal/

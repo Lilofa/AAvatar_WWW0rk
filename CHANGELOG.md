@@ -9,6 +9,35 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## 2026-11-26
 
+### Privacy policy and user agreement ready to publish
+- Operator filled in from avagruz.ru: **ИП Грищук Александр Сергеевич**,
+  ИНН 701739286703, ОГРНИП 311701732000069, 22-8070@mail.ru. No blanks left.
+- Policy updated for today's features: porter applications, city and
+  approximate location (stays on the phone), the map (OpenStreetMap), payment
+  data. It now covers the app only (avagruz.ru has its own policy).
+- **User agreement** rewritten for how the company really works: the app is
+  the ИП's ordering tool, prices are preliminary until the dispatcher confirms,
+  payment methods, cancellation under consumer law, porter applications.
+- Both documents are **inside the app**: links on the login screen («Получая
+  код, вы принимаете…») and at the bottom of the cabinet (Apple requires this).
+- Login consent names the operator; new version `2026-11-26`.
+- `legal-site/` + workflow **Legal pages** publish them on GitHub Pages
+  (switch on once: Settings → Pages → Source: GitHub Actions). Text lives in
+  `docs/legal/`; `python3 scripts/sync-legal.py` updates the app and the site,
+  and a test fails if they differ.
+
+### Fixed before the policy could be true
+- **Porters no longer see the client's phone and entrance** in open orders
+  (pentest B2). They live in a separate private table: phone — client, crew of
+  the order, dispatcher; entrance — also the crew lead after «Начали».
+- `get_order_safe` returned **any** order to **any** logged-in user by id. Now
+  only to people in that order, staff, and porters for open feed orders.
+- **«Удалить аккаунт»** at the bottom of the cabinet (App Store / Google Play
+  requirement): erases name, phone, messages, photos, order phone/entrance and
+  applications; finished orders stay without personal data for accounting;
+  the same phone can register again.
+- Rejected porter applications are deleted automatically after 1 year.
+
 ### Payments: method in the order, «paid» mark by the dispatcher
 - Checked avagruz.ru: customers pay cash, by bank transfer (invoice for
   companies) or by transfer to a Sber card with 100% prepayment. There is no

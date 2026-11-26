@@ -224,6 +224,15 @@ class SupabaseOrdersRepository implements OrdersRepository {
       });
 
   @override
+  Future<void> deleteMyAccount() => _guard(() async {
+        final res = await _invokeJson('delete-account', const {});
+        if (res['ok'] != true) {
+          throw Failures.server('${res['error'] ?? 'Не удалось удалить аккаунт.'}');
+        }
+        await signOut();
+      });
+
+  @override
   Future<void> updateMyCity(String city) => _guard(() async {
         final uid = _client.auth.currentUser?.id;
         if (uid == null) throw Failures.unauthorized();
@@ -382,7 +391,10 @@ class SupabaseOrdersRepository implements OrdersRepository {
 
   @override
   Future<Order> getOrder({required String orderId}) => _guard(() async {
-        final row = await _client.from('orders').select().eq('id', orderId).single();
+        // Через get_order_safe (миграция 20261126140000): телефон для связи и
+        // подъезд хранятся отдельно и приходят только тем, кому положено.
+        final row = await _rpcJson('get_order_safe', {'p_order_id': orderId});
+        if (row.isEmpty) throw Failures.orderNotFound();
         final my = await _myResponsesFor([orderId]);
         return orderFromRow(row,
             myResponseStatus: my[orderId],

@@ -1545,6 +1545,10 @@ class MockOrdersRepository implements OrdersRepository {
     return digits == null ? 2000 : int.parse(digits.group(0)!);
   }
 
+  /// Демо: ничего не хранится на сервере — просто «выходим».
+  @override
+  Future<void> deleteMyAccount() => _guard(() async {});
+
   @override
   Future<void> updateMyCity(String city) => _guard(() async {
         MockControls.demoCity = city;

@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/error/app_failure.dart';
 import '../../../core/legal/consent_text.dart';
+import '../../../core/legal/legal_doc_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
@@ -258,7 +259,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _busy ? null : _sendCode,
                 child: Text(_busy ? 'Отправляем…' : 'Получить код'),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+              const _LegalLinks(),
+              const SizedBox(height: 6),
               const Text(
                 key: Key('login_worker_hint'),
                 'Хотите работать грузчиком? Войдите и подайте заявку '
@@ -398,4 +401,40 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
+}
+
+/// «Получая код, вы принимаете Соглашение» + ссылка на Политику.
+class _LegalLinks extends StatelessWidget {
+  const _LegalLinks();
+
+  @override
+  Widget build(BuildContext context) {
+    const small = TextStyle(fontSize: 12, color: AppColors.muted);
+    final link = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      minimumSize: const Size(0, 32),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+    );
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text('Получая код, вы принимаете', style: small),
+        TextButton(
+          key: const Key('login_terms_link'),
+          style: link,
+          onPressed: () => openLegalDoc(context, LegalDoc.terms),
+          child: const Text('Пользовательское соглашение'),
+        ),
+        const Text('·', style: small),
+        TextButton(
+          key: const Key('login_privacy_link'),
+          style: link,
+          onPressed: () => openLegalDoc(context, LegalDoc.privacy),
+          child: const Text('Политика конфиденциальности'),
+        ),
+      ],
+    );
+  }
 }
