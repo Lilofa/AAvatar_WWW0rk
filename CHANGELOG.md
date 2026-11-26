@@ -9,6 +9,21 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## 2026-11-26
 
+### City map and city detection
+- Porter feed: new **map button** in the top bar switches between the list and
+  a **map of the city with orders as pins** (red = urgent). Tap a pin → short
+  card → «Открыть заказ».
+- Client cabinet: «Мои заказы» has a **«На карте»** button.
+- **City chip** (cabinet header and on the map): «Определить автоматически» or
+  pick Томск / Новосибирск by hand. Location is asked only when the person taps
+  «Определить», accuracy is approximate, and the coordinates never leave the
+  phone — only the city name is saved to the profile.
+- Map: OpenStreetMap (free, no key). For heavy traffic later, switch the tile
+  server (e.g. MapTiler) — one line.
+- Android asks only for approximate location; iOS has the permission text and
+  the privacy manifest lists «coarse location».
+- The service cities are Томск and Новосибирск (from avagruz.ru).
+
 ### Everyone signs up as a client; porters apply from the cabinet (Artem)
 - The login screen no longer asks «Я заказчик / Я грузчик». Everyone is created
   as a client; the server ignores any role sent at signup.

@@ -17,6 +17,8 @@ import '../../../core/ui/app_widgets.dart';
 import '../../../core/ui/sign_out.dart';
 import '../../../data/orders_repository.dart';
 import '../../../data/supabase/mappers.dart';
+import '../../city_map/presentation/city_picker.dart';
+import '../../city_map/presentation/orders_map.dart';
 import '../../create_order/presentation/create_order_screen.dart';
 import '../../order_active/presentation/order_active_screen.dart';
 import '../../order_flow/domain/enums.dart';
@@ -164,7 +166,25 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
         SectionTitle(
           'Мои заказы (как заказчик)',
           key: const Key('cab_client_section'),
-          trailing: AppPill(label: '${orders.length}', color: AppColors.muted),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (orders.any((o) => o.coords != null))
+                TextButton.icon(
+                  key: const Key('cab_orders_map'),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => OrdersMapScreen(
+                      title: 'Мои заказы на карте',
+                      orders: orders,
+                      repository: widget.repository,
+                    ),
+                  )),
+                  icon: const Icon(Icons.map_outlined, size: 18),
+                  label: const Text('На карте'),
+                ),
+              AppPill(label: '${orders.length}', color: AppColors.muted),
+            ],
+          ),
         ),
         if (orders.isEmpty)
           const Padding(
@@ -228,7 +248,11 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: [for (final r in p.roles) _roleChip(r)],
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (final r in p.roles) _roleChip(r),
+              CityPicker(repository: widget.repository),
+            ],
           ),
           if (porter != null) ...[
             const SizedBox(height: 16),

@@ -208,6 +208,14 @@ class SupabaseOrdersRepository implements OrdersRepository {
       StreamController<void>.broadcast();
 
   @override
+  Future<void> updateMyCity(String city) => _guard(() async {
+        final uid = _client.auth.currentUser?.id;
+        if (uid == null) throw Failures.unauthorized();
+        await _client.from('profiles').update({'city': city}).eq('id', uid);
+        await refreshCurrentUser();
+      });
+
+  @override
   Future<void> refreshCurrentUser() async {
     _profileCache.clear();
     _profileRefresh.add(null);

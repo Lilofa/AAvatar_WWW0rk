@@ -70,6 +70,9 @@ abstract final class MockControls {
 
   static Stream<Set<UserRole>> get demoRolesChanges => _roles.stream;
 
+  /// Город демо-пользователя (null — ещё не выбран/не определён).
+  static String? demoCity;
+
   static void setDemoRoles(Set<UserRole> roles) {
     demoRoles = roles;
     _roles.add(roles);
@@ -183,6 +186,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskDescription: 'Поднять 25 мешков штукатурки на 5 этаж без лифта.',
       clientTariffHint: 'Стандарт',
       porterTariffHint: '350 ₽/час',
+      coords: const GeoPoint(lat: 55.0257, lng: 82.9436),
       createdAt: base.subtract(const Duration(minutes: 40)),
     ));
 
@@ -199,6 +203,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskTitle: 'Замена грузчика на вывоз мусора',
       taskDescription: 'Вынести строительный мусор после ремонта, 15 мешков.',
       isReplacement: true,
+      coords: const GeoPoint(lat: 55.0921, lng: 82.9547),
       createdAt: base.subtract(const Duration(minutes: 2)),
     ));
 
@@ -225,6 +230,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskDescription: 'Загрузить паллеты в фуру, работа на складе, есть рохля.',
       clientTariffHint: 'Ночной/утренний',
       porterTariffHint: '400 ₽/час',
+      coords: const GeoPoint(lat: 54.9893, lng: 82.8476),
       createdAt: base.subtract(const Duration(hours: 5)),
     ));
 
@@ -240,6 +246,7 @@ class MockOrdersRepository implements OrdersRepository {
       urgency: OrderUrgency.preliminary,
       taskTitle: 'Перенос мебели в квартире',
       taskDescription: 'Переставить диван и шкаф между комнатами.',
+      coords: const GeoPoint(lat: 55.0306, lng: 82.9157),
       createdAt: base.subtract(const Duration(hours: 8)),
     ));
 
@@ -256,6 +263,7 @@ class MockOrdersRepository implements OrdersRepository {
       urgency: OrderUrgency.advance,
       taskTitle: 'Утренняя погрузка (тест предупреждений)',
       taskDescription: 'Проверка предупреждения о дедлайне «Проснулся».',
+      coords: const GeoPoint(lat: 55.0644, lng: 83.0029),
       createdAt: base.subtract(const Duration(hours: 2)),
     ));
     _orderTakers['ord-1006'] = [
@@ -283,6 +291,7 @@ class MockOrdersRepository implements OrdersRepository {
       entrance: '2-й подъезд, код 45К6, этаж 4, лифт работает',
       clientPhone: '+7 913 111-22-33',
       resultComment: null,
+      coords: const GeoPoint(lat: 54.9862, lng: 82.893),
       createdAt: base.subtract(const Duration(hours: 3)),
     ));
 
@@ -354,6 +363,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskTitle: 'Переезд 1-комнатной квартиры',
       taskDescription: 'Полный переезд, упаковка была готова.',
       resultComment: 'Всё прошло хорошо, клиент доволен, лифт работал.',
+      coords: const GeoPoint(lat: 55.0388, lng: 82.9287),
       createdAt: base.subtract(const Duration(days: 1, hours: 6)),
     ));
   }
@@ -533,6 +543,7 @@ class MockOrdersRepository implements OrdersRepository {
         phone: '+7 913 000-00-00',
         roles: roles,
         name: 'Артём',
+        city: MockControls.demoCity,
       );
 
   @override
@@ -1493,6 +1504,13 @@ class MockOrdersRepository implements OrdersRepository {
         if (approve && a.userId == _me) {
           MockControls.setDemoRoles({...MockControls.demoRoles, UserRole.porter});
         }
+      });
+
+  @override
+  Future<void> updateMyCity(String city) => _guard(() async {
+        MockControls.demoCity = city;
+        // Перевыпустить профиль подписчикам watchCurrentUser.
+        MockControls.setDemoRoles(MockControls.demoRoles);
       });
 
   @override

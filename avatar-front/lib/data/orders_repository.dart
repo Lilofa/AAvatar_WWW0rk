@@ -238,6 +238,11 @@ abstract interface class OrdersRepository {
     String? reason,
   });
 
+  /// Сохранить город пользователя (profiles.city). Определяется на телефоне
+  /// по приблизительной геопозиции или выбирается вручную; координаты на
+  /// сервер не отправляются — только название города.
+  Future<void> updateMyCity(String city);
+
   /// Перечитать профиль (роли) и отдать его в [watchCurrentUser] —
   /// например, после одобрения заявки.
   Future<void> refreshCurrentUser();
