@@ -9,6 +9,20 @@ link in the chat, or download the APK from GitHub → Actions → **Android beta
 
 ## 2026-11-26
 
+### Payments: method in the order, «paid» mark by the dispatcher
+- Checked avagruz.ru: customers pay cash, by bank transfer (invoice for
+  companies) or by transfer to a Sber card with 100% prepayment. There is no
+  online card payment, so the app now records payment the same way.
+- New order form: **«Оплата»** — наличными бригаде / переводом (предоплата) /
+  по счёту для организаций. The client's order card shows the payment status.
+- Dispatcher's order screen: **«Оплачено»** button (and «Снять»). Only
+  dispatchers/admins can mark an order paid; the server refuses a client who
+  tries to create an order already marked paid or to change it.
+- `docs/payments.md`: plan for online card/СБП payment via ЮKassa (server
+  computes the amount, webhook re-checked with ЮKassa, 54-ФЗ receipts) and
+  what the owner must provide (contract on the ИП, shop ID and secret key).
+  Also a warning about transfers to a personal card.
+
 ### City map and city detection
 - Porter feed: new **map button** in the top bar switches between the list and
   a **map of the city with orders as pins** (red = urgent). Tap a pin → short

@@ -67,7 +67,52 @@ class Order {
     this.forceClosed = false,
     this.isReplacement = false,
     this.clientIsMe = false,
+    this.paymentMethod = PaymentMethod.cash,
+    this.paymentStatus = PaymentStatus.unpaid,
+    this.paidAmount,
   });
+
+  /// Копия с другой оплатой (демо-репозиторий и оптимистичные обновления).
+  Order withPayment({
+    required PaymentStatus status,
+    PaymentMethod? method,
+    num? amount,
+  }) =>
+      Order(
+        id: id,
+        clientId: clientId,
+        address: address,
+        timeStart: timeStart,
+        plannedDurationMin: plannedDurationMin,
+        peopleCount: peopleCount,
+        status: this.status,
+        urgency: urgency,
+        taskTitle: taskTitle,
+        taskDescription: taskDescription,
+        entrance: entrance,
+        transport: transport,
+        clientPhone: clientPhone,
+        extraComments: extraComments,
+        clientTariffHint: clientTariffHint,
+        porterTariffHint: porterTariffHint,
+        resultComment: resultComment,
+        coords: coords,
+        createdAt: createdAt,
+        myResponseStatus: myResponseStatus,
+        feedbackMissed: feedbackMissed,
+        forceClosed: forceClosed,
+        isReplacement: isReplacement,
+        clientIsMe: clientIsMe,
+        paymentMethod: method ?? paymentMethod,
+        paymentStatus: status,
+        paidAmount: status == PaymentStatus.paid ? amount : null,
+      );
+
+  /// Оплата (миграция 20261126130000): способ выбирает заказчик,
+  /// «оплачено» отмечает диспетчер.
+  final PaymentMethod paymentMethod;
+  final PaymentStatus paymentStatus;
+  final num? paidAmount;
 
   final String id;
   final String clientId;
@@ -374,8 +419,10 @@ class CreateOrderRequest {
     this.phone,
     this.extraComments,
     this.coords,
+    this.paymentMethod = PaymentMethod.cash,
   });
 
+  final PaymentMethod paymentMethod;
   final String address;
   final DateTime timeStart;
   final int peopleCount;

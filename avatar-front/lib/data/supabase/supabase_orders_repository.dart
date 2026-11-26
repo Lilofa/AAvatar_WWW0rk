@@ -208,6 +208,22 @@ class SupabaseOrdersRepository implements OrdersRepository {
       StreamController<void>.broadcast();
 
   @override
+  Future<void> setOrderPayment({
+    required String orderId,
+    required PaymentStatus status,
+    num? amount,
+    PaymentMethod? method,
+  }) =>
+      _guard(() async {
+        await _client.rpc('set_order_payment', params: {
+          'p_order_id': orderId,
+          'p_status': status.name,
+          'p_amount': amount,
+          'p_method': method?.wire,
+        });
+      });
+
+  @override
   Future<void> updateMyCity(String city) => _guard(() async {
         final uid = _client.auth.currentUser?.id;
         if (uid == null) throw Failures.unauthorized();

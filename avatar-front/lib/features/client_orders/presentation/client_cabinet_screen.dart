@@ -381,6 +381,20 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
                 icon: o.status.icon,
               ),
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AppPill(
+                key: Key('cab_payment_${o.id}'),
+                icon: Icons.payments_outlined,
+                label: o.paymentStatus == PaymentStatus.paid
+                    ? 'Оплачен ${o.paymentMethod.short}'
+                    : 'Оплата ${o.paymentMethod.short}',
+                color: o.paymentStatus == PaymentStatus.paid
+                    ? AppColors.success
+                    : AppColors.muted,
+              ),
+            ),
             const SizedBox(height: 12),
             if (completed)
               worked

@@ -243,6 +243,16 @@ abstract interface class OrdersRepository {
   /// сервер не отправляются — только название города.
   Future<void> updateMyCity(String city);
 
+  // ── 13. ОПЛАТА ─────────────────────────────────────────────
+  /// Отметить оплату заказа (диспетчер/админ). [amount] по умолчанию —
+  /// цена заказа; [method] — если клиент заплатил иначе, чем выбрал.
+  Future<void> setOrderPayment({
+    required String orderId,
+    required PaymentStatus status,
+    num? amount,
+    PaymentMethod? method,
+  });
+
   /// Перечитать профиль (роли) и отдать его в [watchCurrentUser] —
   /// например, после одобрения заявки.
   Future<void> refreshCurrentUser();

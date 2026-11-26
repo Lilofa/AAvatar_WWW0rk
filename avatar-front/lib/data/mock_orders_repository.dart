@@ -437,6 +437,9 @@ class MockOrdersRepository implements OrdersRepository {
       porterTariffHint: o.porterTariffHint,
       resultComment: o.resultComment,
       coords: o.coords,
+      paymentMethod: o.paymentMethod,
+      paymentStatus: o.paymentStatus,
+      paidAmount: o.paidAmount,
       createdAt: o.createdAt,
       myResponseStatus: r?.status,
       feedbackMissed: o.feedbackMissed,
@@ -731,6 +734,10 @@ class MockOrdersRepository implements OrdersRepository {
             taskTitle: o.taskTitle,
             taskDescription: o.taskDescription,
             entrance: o.entrance,
+            coords: o.coords,
+            paymentMethod: o.paymentMethod,
+            paymentStatus: o.paymentStatus,
+            paidAmount: o.paidAmount,
             createdAt: o.createdAt,
           );
           _orderStages.remove(orderId);
@@ -936,6 +943,9 @@ class MockOrdersRepository implements OrdersRepository {
           porterTariffHint: o.porterTariffHint,
           resultComment: resultComment,
           coords: o.coords,
+          paymentMethod: o.paymentMethod,
+          paymentStatus: o.paymentStatus,
+          paidAmount: o.paidAmount,
           createdAt: o.createdAt,
         );
 
@@ -1091,6 +1101,7 @@ class MockOrdersRepository implements OrdersRepository {
           extraComments: req.extraComments,
           clientTariffHint: req.tariff,
           coords: req.coords,
+          paymentMethod: req.paymentMethod,
           createdAt: _now(),
         );
         _addOrder(o);
@@ -1373,6 +1384,9 @@ class MockOrdersRepository implements OrdersRepository {
         porterTariffHint: o.porterTariffHint,
         resultComment: o.resultComment,
         coords: o.coords,
+        paymentMethod: o.paymentMethod,
+        paymentStatus: o.paymentStatus,
+        paidAmount: o.paidAmount,
         createdAt: o.createdAt,
         forceClosed: o.forceClosed,
         isReplacement: o.isReplacement,
@@ -1505,6 +1519,31 @@ class MockOrdersRepository implements OrdersRepository {
           MockControls.setDemoRoles({...MockControls.demoRoles, UserRole.porter});
         }
       });
+
+  @override
+  Future<void> setOrderPayment({
+    required String orderId,
+    required PaymentStatus status,
+    num? amount,
+    PaymentMethod? method,
+  }) =>
+      _guard(() async {
+        final o = _orders[orderId];
+        if (o == null) throw Failures.orderNotFound();
+        _orders[orderId] = o.withPayment(
+          status: status,
+          method: method,
+          amount: amount ?? _priceOf(o),
+        );
+        _emitStatus(orderId);
+        _emitFeed();
+      });
+
+  /// Цена для демо-оплаты: из подсказки тарифа или по калькулятору.
+  num _priceOf(Order o) {
+    final digits = RegExp(r'\d+').firstMatch(o.clientTariffHint ?? '');
+    return digits == null ? 2000 : int.parse(digits.group(0)!);
+  }
 
   @override
   Future<void> updateMyCity(String city) => _guard(() async {

@@ -50,6 +50,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   int _durationMin = 60;
   OrderUrgency _urgency = OrderUrgency.current;
   TransportType _transport = TransportType.none;
+  PaymentMethod _payment = PaymentMethod.cash;
 
   TariffQuote? _quote;
   bool _quoting = false;
@@ -139,6 +140,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         extraComments:
             _comments.text.trim().isEmpty ? null : _comments.text.trim(),
         coords: _coords,
+        paymentMethod: _payment,
       ));
       if (mounted) setState(() => _done = true);
     } on AppFailure catch (f) {
@@ -457,6 +459,37 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                         }),
                       ),
                   ],
+                ),
+              ],
+            ),
+            _section(
+              icon: Icons.payments_outlined,
+              title: 'Оплата',
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final m in PaymentMethod.values)
+                      ChoiceChip(
+                        key: Key('create_payment_${m.name}'),
+                        label: Text(m.label),
+                        selected: _payment == m,
+                        onSelected: (_) => setState(() => _payment = m),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  key: const Key('create_payment_hint'),
+                  switch (_payment) {
+                    PaymentMethod.cash => 'Оплата бригаде после работы.',
+                    PaymentMethod.transfer =>
+                      '100% до начала работ — реквизиты пришлёт диспетчер.',
+                    PaymentMethod.invoice =>
+                      'Счёт и закрывающие документы для организаций.',
+                  },
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
               ],
             ),

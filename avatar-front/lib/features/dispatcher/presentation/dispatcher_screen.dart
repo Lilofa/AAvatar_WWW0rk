@@ -209,6 +209,7 @@ class DispatcherOrderScreen extends StatefulWidget {
 class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
   List<OrderResponse>? _responses;
   List<OrderTaker> _takers = const [];
+  Order? _order;
   AppFailure? _error;
   bool _busy = false;
   StreamSubscription<List<OrderTaker>>? _takersSub;
@@ -217,6 +218,7 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
   void initState() {
     super.initState();
     _refreshResponses();
+    _loadOrder();
     _takersSub =
         widget.repository.watchOrderTakers(orderId: widget.orderId).listen((t) {
       if (mounted) setState(() => _takers = t);
@@ -237,6 +239,66 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
     } on AppFailure catch (f) {
       if (mounted) setState(() => _error = f);
     }
+  }
+
+  Future<void> _loadOrder() async {
+    try {
+      final o = await widget.repository.getOrder(orderId: widget.orderId);
+      if (mounted) setState(() => _order = o);
+    } on AppFailure {
+      // Карточка оплаты просто не покажется; остальной пульт работает.
+    }
+  }
+
+  Future<void> _setPaid(bool paid) async {
+    await _act(
+      () => widget.repository.setOrderPayment(
+        orderId: widget.orderId,
+        status: paid ? PaymentStatus.paid : PaymentStatus.unpaid,
+      ),
+      refresh: false,
+    );
+    await _loadOrder();
+  }
+
+  Widget _paymentCard(Order o) {
+    final paid = o.paymentStatus == PaymentStatus.paid;
+    return AppCard(
+      key: const Key('disp_payment_card'),
+      accent: paid ? AppColors.success : AppColors.warning,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Оплата',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  '${o.paymentMethod.label} · ${o.paymentStatus.label}'
+                  '${paid && o.paidAmount != null ? ' · ${o.paidAmount!.toStringAsFixed(0)} ₽' : ''}',
+                  key: const Key('disp_payment_status'),
+                  style: const TextStyle(color: AppColors.inkSoft),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          paid
+              ? OutlinedButton(
+                  key: const Key('disp_mark_unpaid'),
+                  onPressed: _busy ? null : () => _setPaid(false),
+                  child: const Text('Снять'),
+                )
+              : FilledButton(
+                  key: const Key('disp_mark_paid'),
+                  onPressed: _busy ? null : () => _setPaid(true),
+                  child: const Text('Оплачено'),
+                ),
+        ],
+      ),
+    );
   }
 
   Future<void> _act(Future<void> Function() action,
@@ -304,6 +366,10 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 message: _error!.message,
               ),
+            if (_order != null) ...[
+              _paymentCard(_order!),
+              const SizedBox(height: 16),
+            ],
             SectionTitle(
               'Отклики, ожидающие решения',
               trailing: _responses == null || _responses!.isEmpty
