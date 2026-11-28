@@ -7,6 +7,18 @@ Try the latest demo in the browser (no install): see the "Аватар демо"
 link in the chat, or download the APK from GitHub → Actions → **Android beta APK**
 → latest green run → Artifacts.
 
+## 2026-11-28
+
+### Optional tool: Entire (history of AI agent work next to the code)
+- `docs/entire.md` (Russian): what Entire Checkpoints is, how to install it,
+  how to read checkpoints. **Warning:** by default it pushes agent transcripts
+  to the git remote, and this repo is public — keep them local or in a
+  private repo.
+- `scripts/entire-setup.sh`: installs the CLI and enables it in local-only
+  mode (or with a private repo: `./scripts/entire-setup.sh github:owner/repo`).
+- Not installed in the cloud session: its safety check blocked the install
+  (Entire adds hooks to the agent itself). Run it on your own computer.
+
 ## 2026-11-26
 
 ### Privacy policy and user agreement ready to publish
