@@ -390,3 +390,51 @@ enum FeedEvent {
   const FeedEvent(this.wire);
   final String wire;
 }
+
+/// Способ оплаты заказа (миграция 20261126130000_order_payments). Как сейчас
+/// принимает оплату компания (avagruz.ru): наличными, переводом с 100%
+/// предоплатой, безналом по счёту для организаций. Онлайн-оплата картой —
+/// после подключения эквайринга (docs/payments.md).
+enum PaymentMethod {
+  cash,
+  transfer,
+  invoice;
+
+  String get wire => name;
+
+  static PaymentMethod fromWire(String? raw) => switch (raw) {
+        'transfer' => PaymentMethod.transfer,
+        'invoice' => PaymentMethod.invoice,
+        _ => PaymentMethod.cash,
+      };
+
+  String get label => switch (this) {
+        PaymentMethod.cash => 'Наличными бригаде',
+        PaymentMethod.transfer => 'Переводом (предоплата)',
+        PaymentMethod.invoice => 'По счёту для организаций',
+      };
+
+  String get short => switch (this) {
+        PaymentMethod.cash => 'наличными',
+        PaymentMethod.transfer => 'переводом',
+        PaymentMethod.invoice => 'по счёту',
+      };
+}
+
+enum PaymentStatus {
+  unpaid,
+  paid,
+  refunded;
+
+  static PaymentStatus fromWire(String? raw) => switch (raw) {
+        'paid' => PaymentStatus.paid,
+        'refunded' => PaymentStatus.refunded,
+        _ => PaymentStatus.unpaid,
+      };
+
+  String get label => switch (this) {
+        PaymentStatus.unpaid => 'Не оплачен',
+        PaymentStatus.paid => 'Оплачен',
+        PaymentStatus.refunded => 'Возврат',
+      };
+}

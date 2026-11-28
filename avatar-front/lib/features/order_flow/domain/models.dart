@@ -67,7 +67,52 @@ class Order {
     this.forceClosed = false,
     this.isReplacement = false,
     this.clientIsMe = false,
+    this.paymentMethod = PaymentMethod.cash,
+    this.paymentStatus = PaymentStatus.unpaid,
+    this.paidAmount,
   });
+
+  /// Копия с другой оплатой (демо-репозиторий и оптимистичные обновления).
+  Order withPayment({
+    required PaymentStatus status,
+    PaymentMethod? method,
+    num? amount,
+  }) =>
+      Order(
+        id: id,
+        clientId: clientId,
+        address: address,
+        timeStart: timeStart,
+        plannedDurationMin: plannedDurationMin,
+        peopleCount: peopleCount,
+        status: this.status,
+        urgency: urgency,
+        taskTitle: taskTitle,
+        taskDescription: taskDescription,
+        entrance: entrance,
+        transport: transport,
+        clientPhone: clientPhone,
+        extraComments: extraComments,
+        clientTariffHint: clientTariffHint,
+        porterTariffHint: porterTariffHint,
+        resultComment: resultComment,
+        coords: coords,
+        createdAt: createdAt,
+        myResponseStatus: myResponseStatus,
+        feedbackMissed: feedbackMissed,
+        forceClosed: forceClosed,
+        isReplacement: isReplacement,
+        clientIsMe: clientIsMe,
+        paymentMethod: method ?? paymentMethod,
+        paymentStatus: status,
+        paidAmount: status == PaymentStatus.paid ? amount : null,
+      );
+
+  /// Оплата (миграция 20261126130000): способ выбирает заказчик,
+  /// «оплачено» отмечает диспетчер.
+  final PaymentMethod paymentMethod;
+  final PaymentStatus paymentStatus;
+  final num? paidAmount;
 
   final String id;
   final String clientId;
@@ -374,8 +419,10 @@ class CreateOrderRequest {
     this.phone,
     this.extraComments,
     this.coords,
+    this.paymentMethod = PaymentMethod.cash,
   });
 
+  final PaymentMethod paymentMethod;
   final String address;
   final DateTime timeStart;
   final int peopleCount;
@@ -458,4 +505,45 @@ class PorterLocation {
   final String? porterName;
   final GeoPoint point;
   final DateTime at;
+}
+
+/// Заявка на работу грузчиком (миграция 20261126120000_worker_applications).
+/// Регистрируются все как заказчики; грузчиком человек становится, когда
+/// диспетчер/админ одобрит заявку из личного кабинета.
+enum WorkerApplicationStatus {
+  pending,
+  approved,
+  rejected;
+
+  static WorkerApplicationStatus fromWire(String? s) => switch (s) {
+        'approved' => approved,
+        'rejected' => rejected,
+        _ => pending,
+      };
+}
+
+class WorkerApplication {
+  const WorkerApplication({
+    required this.id,
+    required this.userId,
+    required this.fullName,
+    required this.city,
+    required this.status,
+    this.experience,
+    this.rejectReason,
+    this.phone,
+    this.createdAt,
+  });
+
+  final String id;
+  final String userId;
+  final String fullName;
+  final String city;
+  final WorkerApplicationStatus status;
+  final String? experience;
+  final String? rejectReason;
+
+  /// Телефон заявителя — только в списке для диспетчера.
+  final String? phone;
+  final DateTime? createdAt;
 }

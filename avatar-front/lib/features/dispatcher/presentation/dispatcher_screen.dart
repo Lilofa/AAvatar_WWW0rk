@@ -17,6 +17,7 @@ import '../../../core/ui/sign_out.dart';
 import '../../../data/orders_repository.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
+import '../../worker_application/presentation/worker_application.dart';
 
 class DispatcherScreen extends StatefulWidget {
   const DispatcherScreen({super.key, required this.repository});
@@ -91,15 +92,22 @@ class _DispatcherScreenState extends State<DispatcherScreen> {
       );
     }
     if (orders.isEmpty) {
-      return const StateView(
-        icon: Icons.task_alt,
-        color: AppColors.success,
-        title: Text('Всё спокойно'),
-        body: Text(
-          key: Key('disp_empty'),
-          'Живых заказов нет.\nНовые заявки появятся здесь.',
-          textAlign: TextAlign.center,
-        ),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          WorkerApplicationsReview(repository: widget.repository),
+          const SizedBox(height: 40),
+          const StateView(
+            icon: Icons.task_alt,
+            color: AppColors.success,
+            title: Text('Всё спокойно'),
+            body: Text(
+              key: Key('disp_empty'),
+              'Живых заказов нет.\nНовые заявки появятся здесь.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       );
     }
     return RefreshIndicator(
@@ -107,10 +115,15 @@ class _DispatcherScreenState extends State<DispatcherScreen> {
       child: ListView.separated(
         key: const Key('disp_list'),
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-        itemCount: orders.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, i) {
-          final o = orders[i];
+        // Сверху — заявки в грузчики (пусто — виджет ничего не рисует).
+        itemCount: orders.length + 1,
+        separatorBuilder: (_, i) =>
+            i == 0 ? const SizedBox.shrink() : const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return WorkerApplicationsReview(repository: widget.repository);
+          }
+          final o = orders[index - 1];
           final statusText = o.status == OrderStatus.new_
               ? 'ждёт бригаду'
               : o.status == OrderStatus.approved
@@ -196,6 +209,7 @@ class DispatcherOrderScreen extends StatefulWidget {
 class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
   List<OrderResponse>? _responses;
   List<OrderTaker> _takers = const [];
+  Order? _order;
   AppFailure? _error;
   bool _busy = false;
   StreamSubscription<List<OrderTaker>>? _takersSub;
@@ -204,6 +218,7 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
   void initState() {
     super.initState();
     _refreshResponses();
+    _loadOrder();
     _takersSub =
         widget.repository.watchOrderTakers(orderId: widget.orderId).listen((t) {
       if (mounted) setState(() => _takers = t);
@@ -224,6 +239,66 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
     } on AppFailure catch (f) {
       if (mounted) setState(() => _error = f);
     }
+  }
+
+  Future<void> _loadOrder() async {
+    try {
+      final o = await widget.repository.getOrder(orderId: widget.orderId);
+      if (mounted) setState(() => _order = o);
+    } on AppFailure {
+      // Карточка оплаты просто не покажется; остальной пульт работает.
+    }
+  }
+
+  Future<void> _setPaid(bool paid) async {
+    await _act(
+      () => widget.repository.setOrderPayment(
+        orderId: widget.orderId,
+        status: paid ? PaymentStatus.paid : PaymentStatus.unpaid,
+      ),
+      refresh: false,
+    );
+    await _loadOrder();
+  }
+
+  Widget _paymentCard(Order o) {
+    final paid = o.paymentStatus == PaymentStatus.paid;
+    return AppCard(
+      key: const Key('disp_payment_card'),
+      accent: paid ? AppColors.success : AppColors.warning,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Оплата',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  '${o.paymentMethod.label} · ${o.paymentStatus.label}'
+                  '${paid && o.paidAmount != null ? ' · ${o.paidAmount!.toStringAsFixed(0)} ₽' : ''}',
+                  key: const Key('disp_payment_status'),
+                  style: const TextStyle(color: AppColors.inkSoft),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          paid
+              ? OutlinedButton(
+                  key: const Key('disp_mark_unpaid'),
+                  onPressed: _busy ? null : () => _setPaid(false),
+                  child: const Text('Снять'),
+                )
+              : FilledButton(
+                  key: const Key('disp_mark_paid'),
+                  onPressed: _busy ? null : () => _setPaid(true),
+                  child: const Text('Оплачено'),
+                ),
+        ],
+      ),
+    );
   }
 
   Future<void> _act(Future<void> Function() action,
@@ -291,6 +366,10 @@ class _DispatcherOrderScreenState extends State<DispatcherOrderScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 message: _error!.message,
               ),
+            if (_order != null) ...[
+              _paymentCard(_order!),
+              const SizedBox(height: 16),
+            ],
             SectionTitle(
               'Отклики, ожидающие решения',
               trailing: _responses == null || _responses!.isEmpty

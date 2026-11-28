@@ -90,12 +90,12 @@ abstract interface class OrdersRepository {
   // ── 1. АВТОРИЗАЦИЯ И ПРОФИЛЬ ──────────────────────────────
   Future<void> sendSmsCode({required String phone});
 
-  /// [role] и [fullName] используются edge-функцией verify-sms только при
-  /// ПЕРВОЙ регистрации пользователя (повторный вход их игнорирует).
+  /// [fullName] используется edge-функцией verify-sms только при ПЕРВОЙ
+  /// регистрации. Роль не передаётся: все регистрируются заказчиками,
+  /// грузчиком — по заявке ([submitWorkerApplication]).
   Future<AuthResult> verifySmsCode({
     required String phone,
     required String code,
-    UserRole? role,
     String? fullName,
 
     /// Версия текста согласия на обработку ПДн, которое пользователь принял
@@ -212,6 +212,56 @@ abstract interface class OrdersRepository {
     required String fileName,
   });
 
+  // ── 12. ЗАЯВКА НА РАБОТУ ГРУЗЧИКОМ (миграция 20261126120000) ──
+  /// Регистрация — только заказчиком. Грузчиком становятся по заявке из
+  /// кабинета; одобряет диспетчер/админ, после чего у профиля появляется роль
+  /// porter (и вкладки грузчика).
+
+  /// Последняя заявка текущего пользователя или null, если не подавал.
+  Future<WorkerApplication?> myWorkerApplication();
+
+  /// Подать заявку. Ошибки: уже грузчик / заявка уже на рассмотрении /
+  /// больше 3 заявок за 30 дней.
+  Future<void> submitWorkerApplication({
+    required String fullName,
+    required String city,
+    String? experience,
+  });
+
+  /// Заявки на рассмотрении — для диспетчера/админа.
+  Future<List<WorkerApplication>> pendingWorkerApplications();
+
+  /// Одобрить или отклонить (с причиной) — диспетчер/админ.
+  Future<void> reviewWorkerApplication({
+    required String id,
+    required bool approve,
+    String? reason,
+  });
+
+  /// Сохранить город пользователя (profiles.city). Определяется на телефоне
+  /// по приблизительной геопозиции или выбирается вручную; координаты на
+  /// сервер не отправляются — только название города.
+  Future<void> updateMyCity(String city);
+
+  // ── 13. ОПЛАТА ─────────────────────────────────────────────
+  /// Отметить оплату заказа (диспетчер/админ). [amount] по умолчанию —
+  /// цена заказа; [method] — если клиент заплатил иначе, чем выбрал.
+  Future<void> setOrderPayment({
+    required String orderId,
+    required PaymentStatus status,
+    num? amount,
+    PaymentMethod? method,
+  });
+
+  /// Удалить аккаунт (Политика, п. 10): edge-функция delete-account стирает
+  /// имя, телефон, переписку и фото, заказы остаются обезличенными для учёта.
+  /// После успеха локальная сессия тоже стирается.
+  Future<void> deleteMyAccount();
+
+  /// Перечитать профиль (роли) и отдать его в [watchCurrentUser] —
+  /// например, после одобрения заявки.
+  Future<void> refreshCurrentUser();
+
   /// Временная (1 час) https-ссылка для показа вложения. Сервер выдаёт её только
   /// участникам заказа. null — ссылка не наша / нет доступа / файл удалён.
   Future<String?> resolveAttachmentUrl(String attachmentUrl);
@@ -227,6 +277,7 @@ class UserProfile {
     required this.name,
     this.avatarUrl,
     this.isActive = true,
+    this.city,
   });
 
   final String id;
@@ -235,6 +286,10 @@ class UserProfile {
   final String name;
   final String? avatarUrl;
   final bool isActive;
+
+  /// Город работы/проживания (profiles.city): определяется по приблизительной
+  /// геопозиции на телефоне или выбирается вручную.
+  final String? city;
 
   bool has(UserRole r) => roles.contains(r);
   bool get isPorter => has(UserRole.porter);

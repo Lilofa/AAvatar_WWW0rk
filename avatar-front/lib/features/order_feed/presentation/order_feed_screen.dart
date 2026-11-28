@@ -21,6 +21,7 @@ import '../../../core/ui/app_widgets.dart';
 import '../../../core/ui/sign_out.dart';
 import '../../../data/mock_orders_repository.dart';
 import '../../../data/orders_repository.dart';
+import '../../city_map/presentation/orders_map.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
 
@@ -35,9 +36,13 @@ class OrderFeedScreen extends StatefulWidget {
     this.onOpenMyClientOrders,
     this.onRespond,
     this.showMockSwitch = false,
+    this.mapTileUrl = osmTileUrl,
   });
 
   final OrdersRepository repository;
+
+  /// Подложка карты; null — без тайлов (виджет-тесты без сети).
+  final String? mapTileUrl;
   final void Function(String orderId)? onOpenOrder;
 
   /// ВРЕМЕННО (до роутинга Коли, неделя 3): вход в «Мои заказы» для заказчика.
@@ -58,6 +63,9 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
   FeedView _view = FeedView.loading;
   List<Order> _orders = const [];
   FeedEmptyReason _emptyReason = FeedEmptyReason.noOrders;
+
+  /// Лента списком или на карте города.
+  bool _showMap = false;
   AppFailure? _failure;
 
   @override
@@ -107,6 +115,12 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
         // Debug-переключатель сознательно НЕ в appBar: в web-дебаге правый верхний
         // угол занимает красная лента DEBUG и перехватывает тапы.
         actions: [
+          IconButton(
+            key: const Key('feed_map_toggle'),
+            tooltip: _showMap ? 'Списком' : 'На карте',
+            icon: Icon(_showMap ? Icons.view_agenda_outlined : Icons.map_outlined),
+            onPressed: () => setState(() => _showMap = !_showMap),
+          ),
           if (widget.onOpenMyClientOrders != null)
             IconButton(
               key: const Key('feed_my_client_orders'),
@@ -152,6 +166,14 @@ class _OrderFeedScreenState extends State<OrderFeedScreen> {
         FeedView.error => TmpError(
             failure: _failure!,
             onRetry: _failure!.showRetry ? _subscribe : null,
+          ),
+        FeedView.data when _showMap => OrdersMap(
+            orders: _orders,
+            repository: widget.repository,
+            tileUrl: widget.mapTileUrl,
+            onOpenOrder: widget.onOpenOrder == null
+                ? null
+                : (o) => widget.onOpenOrder!(o.id),
           ),
         FeedView.data => RefreshIndicator(
             onRefresh: () async => _subscribe(),

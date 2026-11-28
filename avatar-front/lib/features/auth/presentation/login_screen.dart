@@ -11,10 +11,10 @@ import 'package:flutter/services.dart';
 
 import '../../../core/error/app_failure.dart';
 import '../../../core/legal/consent_text.dart';
+import '../../../core/legal/legal_doc_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
 import '../../../data/orders_repository.dart';
-import '../../order_flow/domain/enums.dart';
 
 /// Валидность российского номера: +7 и ровно 10 цифр после.
 /// Вынесено из виджета для регресс-тестов (баг-репорт 25.09).
@@ -73,7 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _codeSent = false;
   bool _busy = false;
   AppFailure? _error;
-  UserRole _role = UserRole.client;
   bool _consent = false;
 
   @override
@@ -135,7 +134,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final res = await widget.repository.verifySmsCode(
         phone: _phoneNormalized,
         code: _code.text.trim(),
-        role: _role,
         consentVersion: consentVersion,
       );
       if (mounted) widget.onAuthenticated(res);
@@ -261,18 +259,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _busy ? null : _sendCode,
                 child: Text(_busy ? 'Отправляем…' : 'Получить код'),
               ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  for (final r in const [UserRole.client, UserRole.porter]) ...[
-                    if (r == UserRole.porter) const SizedBox(width: 10),
-                    Expanded(child: _roleCard(r)),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
+              const _LegalLinks(),
+              const SizedBox(height: 6),
               const Text(
-                'Роль нужна только при первой регистрации.',
+                key: Key('login_worker_hint'),
+                'Хотите работать грузчиком? Войдите и подайте заявку '
+                'в личном кабинете.',
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppColors.muted),
               ),
             ] else ...[
@@ -407,52 +401,40 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
-  Widget _roleCard(UserRole r) {
-    final selected = _role == r;
-    final isClient = r == UserRole.client;
-    return Material(
-      color: selected ? AppColors.brandBlueSoft : AppColors.surface,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
-        key: Key('login_role_${r.name}'),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        onTap: () => setState(() => _role = r),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(
-              color: selected ? AppColors.brandBlue : AppColors.border,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                isClient
-                    ? Icons.inventory_2_outlined
-                    : Icons.fitness_center_outlined,
-                size: 22,
-                color: selected ? AppColors.brandBlue : AppColors.muted,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isClient ? 'Я заказчик' : 'Я грузчик',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: selected ? AppColors.brandBlueDeep : AppColors.ink,
-                  ),
-                ),
-              ),
-              if (selected)
-                const Icon(Icons.check_circle,
-                    size: 18, color: AppColors.brandBlue),
-            ],
-          ),
+}
+
+/// «Получая код, вы принимаете Соглашение» + ссылка на Политику.
+class _LegalLinks extends StatelessWidget {
+  const _LegalLinks();
+
+  @override
+  Widget build(BuildContext context) {
+    const small = TextStyle(fontSize: 12, color: AppColors.muted);
+    final link = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      minimumSize: const Size(0, 32),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+    );
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text('Получая код, вы принимаете', style: small),
+        TextButton(
+          key: const Key('login_terms_link'),
+          style: link,
+          onPressed: () => openLegalDoc(context, LegalDoc.terms),
+          child: const Text('Пользовательское соглашение'),
         ),
-      ),
+        const Text('·', style: small),
+        TextButton(
+          key: const Key('login_privacy_link'),
+          style: link,
+          onPressed: () => openLegalDoc(context, LegalDoc.privacy),
+          child: const Text('Политика конфиденциальности'),
+        ),
+      ],
     );
   }
 }

@@ -33,6 +33,10 @@
 	<false/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Нужен доступ к фото, чтобы вы могли прикрепить снимок груза или места к заказу.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Чтобы определить ваш город (Томск или Новосибирск) и показать заказы рядом. Координаты остаются на телефоне.</string>
+	<key>NSLocationDefaultAccuracyReduced</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Нужен доступ к камере, чтобы сфотографировать груз или место для заказа.</string>
 	<key>NSAppTransportSecurity</key>

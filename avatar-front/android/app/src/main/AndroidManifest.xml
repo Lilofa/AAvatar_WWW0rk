@@ -5,6 +5,9 @@
          «нет соединения» на любом запросе к Supabase. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Только ПРИБЛИЗИТЕЛЬНАЯ геопозиция: определить город (Томск/Новосибирск).
+         Точная (FINE) не нужна; координаты не покидают телефон. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="Аватар"
         android:name="${applicationName}"

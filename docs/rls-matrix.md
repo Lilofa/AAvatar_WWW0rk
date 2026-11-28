@@ -14,8 +14,11 @@ RLS **включён на всех** таблицах; роль `anon` не им
 | messages | SELECT/INSERT: участники чата (заказчик, бригада, персонал) | то же | то же | то же |
 | order_locations | — | INSERT свои (только как член бригады) | SELECT all | SELECT all |
 | device_tokens | SELECT/INSERT/DELETE свои | то же | то же | то же |
+| worker_applications | SELECT своя; запись только RPC `submit_worker_application` | то же | SELECT all; RPC `review_worker_application` | то же |
 | audit_log | — | — | — | SELECT all |
 | sms_codes, sms_sends | — | — | — | **только service_role** (edge-функции) |
 
 Роли `dispatcher`/`admin` выдаются **только** администратором через `service_role` /
-SQL-консоль. Самому себе можно добавить лишь `client`/`porter` (`add_role`).
+SQL-консоль. Регистрация — только `client`; `porter` появляется, когда диспетчер/админ
+одобрит заявку (`review_worker_application`). Проверки ролей в политиках — через
+`has_role()` (человек может быть и заказчиком, и грузчиком одновременно).

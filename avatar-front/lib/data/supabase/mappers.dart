@@ -127,6 +127,9 @@ Order orderFromRow(
     forceClosed: _bool(row['force_closed']),
     isReplacement: isReplacement,
     clientIsMe: clientIsMe,
+    paymentMethod: PaymentMethod.fromWire(_str(row['payment_method'])),
+    paymentStatus: PaymentStatus.fromWire(_str(row['payment_status'])),
+    paidAmount: row['paid_amount'] == null ? null : _num(row['paid_amount']),
   );
 }
 
@@ -295,6 +298,7 @@ UserProfile userProfileFromRow(Map<String, dynamic> row) => UserProfile(
       name: _str(row['full_name']) ?? 'Клиент',
       avatarUrl: _str(row['avatar_url']),
       isActive: !_bool(row['is_blocked']),
+      city: _str(row['city']),
     );
 
 // ─────────────────────────────────────────────────────────────
@@ -428,6 +432,7 @@ Map<String, dynamic> orderInsertFromRequest(
       'entrance': r.entrance == null ? null : int.tryParse(r.entrance!),
       if (r.coords != null)
         'coords_from': {'lat': r.coords!.lat, 'lng': r.coords!.lng},
+      'payment_method': r.paymentMethod.wire,
       // Матвей 20.09: price NOT NULL, при создании ставим 0 — триггер
       // check_order_filled пересчитает при created → accepted.
       // 🔴 planned_duration_min обязателен, иначе триггер не пересчитает!

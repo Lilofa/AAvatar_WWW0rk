@@ -1,0 +1,34 @@
+name: Legal pages
+
+# Публикует Политику и Соглашение (legal-site/, генерирует scripts/sync-legal.py)
+# на GitHub Pages: https://lilofa.github.io/AAvatar_WWW0rk/privacy.html
+# Один раз включить: Settings → Pages → Source: «GitHub Actions».
+on:
+  push:
+    branches: [main]
+    paths: ["legal-site/**", ".github/workflows/legal-pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: legal-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}privacy.html
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: legal-site
+      - id: deploy
+        uses: actions/deploy-pages@v4

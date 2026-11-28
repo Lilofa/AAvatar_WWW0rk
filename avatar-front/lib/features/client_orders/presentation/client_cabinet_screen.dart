@@ -12,16 +12,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/error/app_failure.dart';
+import '../../../core/legal/legal_doc_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_widgets.dart';
 import '../../../core/ui/sign_out.dart';
 import '../../../data/orders_repository.dart';
 import '../../../data/supabase/mappers.dart';
+import '../../city_map/presentation/city_picker.dart';
+import '../../city_map/presentation/orders_map.dart';
 import '../../create_order/presentation/create_order_screen.dart';
 import '../../order_active/presentation/order_active_screen.dart';
 import '../../order_flow/domain/enums.dart';
 import '../../order_flow/domain/models.dart';
 import '../../order_review/presentation/order_review_screen.dart';
+import '../../worker_application/presentation/worker_application.dart';
 
 class ClientCabinetScreen extends StatefulWidget {
   const ClientCabinetScreen({super.key, required this.repository});
@@ -130,27 +134,58 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
         child: CircularProgressIndicator(key: Key('cab_loading')),
       );
     }
-    if (orders.isEmpty && _work.isEmpty) {
-      return const StateView(
-        icon: Icons.inventory_2_outlined,
-        title: Text('Заказов ещё не было'),
-        body: Text(
-          key: Key('cab_empty'),
-          'Пока пусто.\nСоздайте первую заявку кнопкой «+».',
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
+    final nothingYet = orders.isEmpty && _work.isEmpty;
     return ListView(
       key: const Key('client_orders_list'),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
       children: [
         _header(profile),
+        // Стать грузчиком можно только заявкой отсюда (регистрация — заказчиком).
+        if (!profile.isPorter && !profile.isDispatcher) ...[
+          const SizedBox(height: 16),
+          WorkerApplicationCard(
+            repository: widget.repository,
+            defaultName: profile.name,
+            defaultCity: profile.city,
+          ),
+        ],
         const SizedBox(height: 24),
+        if (nothingYet)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: StateView(
+              icon: Icons.inventory_2_outlined,
+              title: Text('Заказов ещё не было'),
+              body: Text(
+                key: Key('cab_empty'),
+                'Пока пусто.\nСоздайте первую заявку кнопкой «+».',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+        else ...[
         SectionTitle(
           'Мои заказы (как заказчик)',
           key: const Key('cab_client_section'),
-          trailing: AppPill(label: '${orders.length}', color: AppColors.muted),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (orders.any((o) => o.coords != null))
+                TextButton.icon(
+                  key: const Key('cab_orders_map'),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => OrdersMapScreen(
+                      title: 'Мои заказы на карте',
+                      orders: orders,
+                      repository: widget.repository,
+                    ),
+                  )),
+                  icon: const Icon(Icons.map_outlined, size: 18),
+                  label: const Text('На карте'),
+                ),
+              AppPill(label: '${orders.length}', color: AppColors.muted),
+            ],
+          ),
         ),
         if (orders.isEmpty)
           const Padding(
@@ -168,6 +203,24 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
           ),
           for (final o in _work) _workCard(o),
         ],
+        ],
+        const SizedBox(height: 24),
+        Wrap(
+          alignment: WrapAlignment.center,
+          children: [
+            TextButton(
+              key: const Key('cab_privacy_link'),
+              onPressed: () => openLegalDoc(context, LegalDoc.privacy),
+              child: const Text('Политика конфиденциальности'),
+            ),
+            TextButton(
+              key: const Key('cab_terms_link'),
+              onPressed: () => openLegalDoc(context, LegalDoc.terms),
+              child: const Text('Пользовательское соглашение'),
+            ),
+          ],
+        ),
+        Center(child: DeleteAccountButton(repository: widget.repository)),
       ],
     );
   }
@@ -213,7 +266,11 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: [for (final r in p.roles) _roleChip(r)],
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (final r in p.roles) _roleChip(r),
+              CityPicker(repository: widget.repository),
+            ],
           ),
           if (porter != null) ...[
             const SizedBox(height: 16),
@@ -340,6 +397,20 @@ class _ClientCabinetScreenState extends State<ClientCabinetScreen> {
                 label: o.status.label,
                 color: o.status.color,
                 icon: o.status.icon,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AppPill(
+                key: Key('cab_payment_${o.id}'),
+                icon: Icons.payments_outlined,
+                label: o.paymentStatus == PaymentStatus.paid
+                    ? 'Оплачен ${o.paymentMethod.short}'
+                    : 'Оплата ${o.paymentMethod.short}',
+                color: o.paymentStatus == PaymentStatus.paid
+                    ? AppColors.success
+                    : AppColors.muted,
               ),
             ),
             const SizedBox(height: 12),

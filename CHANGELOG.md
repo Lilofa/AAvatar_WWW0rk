@@ -7,7 +7,125 @@ Try the latest demo in the browser (no install): see the "Аватар демо"
 link in the chat, or download the APK from GitHub → Actions → **Android beta APK**
 → latest green run → Artifacts.
 
+## 2026-11-28
+
+### Optional tool: Entire (history of AI agent work next to the code)
+- `docs/entire.md` (Russian): what Entire Checkpoints is, how to install it,
+  how to read checkpoints. **Warning:** by default it pushes agent transcripts
+  to the git remote, and this repo is public — keep them local or in a
+  private repo.
+- `scripts/entire-setup.sh`: installs the CLI and enables it in local-only
+  mode (or with a private repo: `./scripts/entire-setup.sh github:owner/repo`).
+- Not installed in the cloud session: its safety check blocked the install
+  (Entire adds hooks to the agent itself). Run it on your own computer.
+
+## 2026-11-26
+
+### Privacy policy and user agreement ready to publish
+- Operator filled in from avagruz.ru: **ИП Грищук Александр Сергеевич**,
+  ИНН 701739286703, ОГРНИП 311701732000069, 22-8070@mail.ru. No blanks left.
+- Policy updated for today's features: porter applications, city and
+  approximate location (stays on the phone), the map (OpenStreetMap), payment
+  data. It now covers the app only (avagruz.ru has its own policy).
+- **User agreement** rewritten for how the company really works: the app is
+  the ИП's ordering tool, prices are preliminary until the dispatcher confirms,
+  payment methods, cancellation under consumer law, porter applications.
+- Both documents are **inside the app**: links on the login screen («Получая
+  код, вы принимаете…») and at the bottom of the cabinet (Apple requires this).
+- Login consent names the operator; new version `2026-11-26`.
+- `legal-site/` + workflow **Legal pages** publish them on GitHub Pages
+  (switch on once: Settings → Pages → Source: GitHub Actions). Text lives in
+  `docs/legal/`; `python3 scripts/sync-legal.py` updates the app and the site,
+  and a test fails if they differ.
+
+### Fixed before the policy could be true
+- **Porters no longer see the client's phone and entrance** in open orders
+  (pentest B2). They live in a separate private table: phone — client, crew of
+  the order, dispatcher; entrance — also the crew lead after «Начали».
+- `get_order_safe` returned **any** order to **any** logged-in user by id. Now
+  only to people in that order, staff, and porters for open feed orders.
+- **«Удалить аккаунт»** at the bottom of the cabinet (App Store / Google Play
+  requirement): erases name, phone, messages, photos, order phone/entrance and
+  applications; finished orders stay without personal data for accounting;
+  the same phone can register again.
+- Rejected porter applications are deleted automatically after 1 year.
+
+### Payments: method in the order, «paid» mark by the dispatcher
+- Checked avagruz.ru: customers pay cash, by bank transfer (invoice for
+  companies) or by transfer to a Sber card with 100% prepayment. There is no
+  online card payment, so the app now records payment the same way.
+- New order form: **«Оплата»** — наличными бригаде / переводом (предоплата) /
+  по счёту для организаций. The client's order card shows the payment status.
+- Dispatcher's order screen: **«Оплачено»** button (and «Снять»). Only
+  dispatchers/admins can mark an order paid; the server refuses a client who
+  tries to create an order already marked paid or to change it.
+- `docs/payments.md`: plan for online card/СБП payment via ЮKassa (server
+  computes the amount, webhook re-checked with ЮKassa, 54-ФЗ receipts) and
+  what the owner must provide (contract on the ИП, shop ID and secret key).
+  Also a warning about transfers to a personal card.
+
+### City map and city detection
+- Porter feed: new **map button** in the top bar switches between the list and
+  a **map of the city with orders as pins** (red = urgent). Tap a pin → short
+  card → «Открыть заказ».
+- Client cabinet: «Мои заказы» has a **«На карте»** button.
+- **City chip** (cabinet header and on the map): «Определить автоматически» or
+  pick Томск / Новосибирск by hand. Location is asked only when the person taps
+  «Определить», accuracy is approximate, and the coordinates never leave the
+  phone — only the city name is saved to the profile.
+- Map: OpenStreetMap (free, no key). For heavy traffic later, switch the tile
+  server (e.g. MapTiler) — one line.
+- Android asks only for approximate location; iOS has the permission text and
+  the privacy manifest lists «coarse location».
+- The service cities are Томск and Новосибирск (from avagruz.ru).
+
+### Everyone signs up as a client; porters apply from the cabinet (Artem)
+- The login screen no longer asks «Я заказчик / Я грузчик». Everyone is created
+  as a client; the server ignores any role sent at signup.
+- Cabinet → card **«Работа грузчиком» → «Подать заявку»**: name, city (Томск /
+  Новосибирск), experience, 18+ confirmation. Status shows on the card: on
+  review, rejected (with the reason, can apply again), approved.
+- Dispatcher/admin see **«Заявки в грузчики»** at the top of their screen and
+  approve or reject (with a reason). After approval the person gets the
+  porter tabs without logging out.
+- Server: table `worker_applications` (people see only their own; writes only
+  through checked functions), max 3 applications per 30 days, one at a time.
+- Fixed underneath: the server only looked at one «active» role, so a person
+  who is both client and porter would have lost their own orders or porter
+  actions. Role checks now use `has_role()`.
+- Demo: switch the role strip to «Заказчик», apply in the cabinet, then switch
+  to «Диспетчер» and approve.
+
+## 2026-11-23
+
+### Privacy policy: final text
+- `docs/legal/privacy-policy.md` rewritten as a complete policy under 152-ФЗ
+  art. 18.1: who we are, whose data, what exactly we collect (and what we
+  don't), purposes with legal bases, who sees what inside the app, outside
+  services with countries (SMS.ru, Yandex Cloud, Nominatim, Sentry, Netlify),
+  cross-border transfer, security, retention periods, rights, account deletion.
+- Checked against the code: the app has **no** push notifications or
+  geolocation, so they are removed from the policy and the consent. Added what
+  was missing: IP address for SMS limits, address search via OpenStreetMap,
+  the website form on Netlify (USA).
+- Login consent updated to match (version `2026-11-23`; users accept it again on
+  the next login).
+- Website page `team-site/privacy.html` regenerated from the new text (it still
+  showed the September draft).
+- Retention promise made true: expired SMS codes and the 30-day SMS log are now
+  deleted automatically every hour (migration `20261123120000`).
+- Only blanks left: operator name, INN/OGRN, address, e-mail, Roskomnadzor
+  number. The comment at the top of the policy lists what must be done before
+  it is published (move to the VPS, fix pentest issue B2, Sentry IP setting,
+  account deletion in the app).
+
 ## 2026-11-19
+
+### iPhone build works again in GitHub Actions
+- GitHub retired the `macos-14` build machine, so the iOS build was cancelled
+  in 1 second on every run. Switched to `macos-15`.
+- Removed the unused CocoaPods `Podfile`: current Flutter gets all iPhone
+  libraries via Swift Package Manager, and the leftover Podfile broke the build.
 
 ### Security checklist (12 items) — `docs/security-12-checklist.md`
 - **Order photos are private now.** Before, anyone with a photo link could open

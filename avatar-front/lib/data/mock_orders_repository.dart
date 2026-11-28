@@ -70,6 +70,9 @@ abstract final class MockControls {
 
   static Stream<Set<UserRole>> get demoRolesChanges => _roles.stream;
 
+  /// Город демо-пользователя (null — ещё не выбран/не определён).
+  static String? demoCity;
+
   static void setDemoRoles(Set<UserRole> roles) {
     demoRoles = roles;
     _roles.add(roles);
@@ -183,6 +186,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskDescription: 'Поднять 25 мешков штукатурки на 5 этаж без лифта.',
       clientTariffHint: 'Стандарт',
       porterTariffHint: '350 ₽/час',
+      coords: const GeoPoint(lat: 55.0257, lng: 82.9436),
       createdAt: base.subtract(const Duration(minutes: 40)),
     ));
 
@@ -199,6 +203,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskTitle: 'Замена грузчика на вывоз мусора',
       taskDescription: 'Вынести строительный мусор после ремонта, 15 мешков.',
       isReplacement: true,
+      coords: const GeoPoint(lat: 55.0921, lng: 82.9547),
       createdAt: base.subtract(const Duration(minutes: 2)),
     ));
 
@@ -225,6 +230,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskDescription: 'Загрузить паллеты в фуру, работа на складе, есть рохля.',
       clientTariffHint: 'Ночной/утренний',
       porterTariffHint: '400 ₽/час',
+      coords: const GeoPoint(lat: 54.9893, lng: 82.8476),
       createdAt: base.subtract(const Duration(hours: 5)),
     ));
 
@@ -240,6 +246,7 @@ class MockOrdersRepository implements OrdersRepository {
       urgency: OrderUrgency.preliminary,
       taskTitle: 'Перенос мебели в квартире',
       taskDescription: 'Переставить диван и шкаф между комнатами.',
+      coords: const GeoPoint(lat: 55.0306, lng: 82.9157),
       createdAt: base.subtract(const Duration(hours: 8)),
     ));
 
@@ -256,6 +263,7 @@ class MockOrdersRepository implements OrdersRepository {
       urgency: OrderUrgency.advance,
       taskTitle: 'Утренняя погрузка (тест предупреждений)',
       taskDescription: 'Проверка предупреждения о дедлайне «Проснулся».',
+      coords: const GeoPoint(lat: 55.0644, lng: 83.0029),
       createdAt: base.subtract(const Duration(hours: 2)),
     ));
     _orderTakers['ord-1006'] = [
@@ -283,6 +291,7 @@ class MockOrdersRepository implements OrdersRepository {
       entrance: '2-й подъезд, код 45К6, этаж 4, лифт работает',
       clientPhone: '+7 913 111-22-33',
       resultComment: null,
+      coords: const GeoPoint(lat: 54.9862, lng: 82.893),
       createdAt: base.subtract(const Duration(hours: 3)),
     ));
 
@@ -354,6 +363,7 @@ class MockOrdersRepository implements OrdersRepository {
       taskTitle: 'Переезд 1-комнатной квартиры',
       taskDescription: 'Полный переезд, упаковка была готова.',
       resultComment: 'Всё прошло хорошо, клиент доволен, лифт работал.',
+      coords: const GeoPoint(lat: 55.0388, lng: 82.9287),
       createdAt: base.subtract(const Duration(days: 1, hours: 6)),
     ));
   }
@@ -427,6 +437,9 @@ class MockOrdersRepository implements OrdersRepository {
       porterTariffHint: o.porterTariffHint,
       resultComment: o.resultComment,
       coords: o.coords,
+      paymentMethod: o.paymentMethod,
+      paymentStatus: o.paymentStatus,
+      paidAmount: o.paidAmount,
       createdAt: o.createdAt,
       myResponseStatus: r?.status,
       feedbackMissed: o.feedbackMissed,
@@ -494,7 +507,6 @@ class MockOrdersRepository implements OrdersRepository {
   Future<AuthResult> verifySmsCode({
     required String phone,
     required String code,
-    UserRole? role,
     String? fullName,
     String? consentVersion,
   }) =>
@@ -534,6 +546,7 @@ class MockOrdersRepository implements OrdersRepository {
         phone: '+7 913 000-00-00',
         roles: roles,
         name: 'Артём',
+        city: MockControls.demoCity,
       );
 
   @override
@@ -721,6 +734,10 @@ class MockOrdersRepository implements OrdersRepository {
             taskTitle: o.taskTitle,
             taskDescription: o.taskDescription,
             entrance: o.entrance,
+            coords: o.coords,
+            paymentMethod: o.paymentMethod,
+            paymentStatus: o.paymentStatus,
+            paidAmount: o.paidAmount,
             createdAt: o.createdAt,
           );
           _orderStages.remove(orderId);
@@ -926,6 +943,9 @@ class MockOrdersRepository implements OrdersRepository {
           porterTariffHint: o.porterTariffHint,
           resultComment: resultComment,
           coords: o.coords,
+          paymentMethod: o.paymentMethod,
+          paymentStatus: o.paymentStatus,
+          paidAmount: o.paidAmount,
           createdAt: o.createdAt,
         );
 
@@ -1081,6 +1101,7 @@ class MockOrdersRepository implements OrdersRepository {
           extraComments: req.extraComments,
           clientTariffHint: req.tariff,
           coords: req.coords,
+          paymentMethod: req.paymentMethod,
           createdAt: _now(),
         );
         _addOrder(o);
@@ -1363,6 +1384,9 @@ class MockOrdersRepository implements OrdersRepository {
         porterTariffHint: o.porterTariffHint,
         resultComment: o.resultComment,
         coords: o.coords,
+        paymentMethod: o.paymentMethod,
+        paymentStatus: o.paymentStatus,
+        paidAmount: o.paidAmount,
         createdAt: o.createdAt,
         forceClosed: o.forceClosed,
         isReplacement: o.isReplacement,
@@ -1406,6 +1430,134 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<String?> resolveAttachmentUrl(String attachmentUrl) async =>
       attachmentUrl;
+
+  // ── 12. ЗАЯВКА НА РАБОТУ ГРУЗЧИКОМ ─────────────────────────
+  // Одна чужая заявка уже ждёт диспетчера, чтобы в демо было что одобрять.
+  final List<WorkerApplication> _workerApps = [
+    WorkerApplication(
+      id: 'wa-demo-1',
+      userId: 'client-sergey',
+      fullName: 'Сергей Ковалёв',
+      city: 'Новосибирск',
+      experience: 'Два года грузчиком на складе, есть опыт квартирных переездов.',
+      status: WorkerApplicationStatus.pending,
+      phone: '+7 913 555-12-34',
+      createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+    ),
+  ];
+
+  @override
+  Future<WorkerApplication?> myWorkerApplication() => _guard(() async {
+        final mine = _workerApps.where((a) => a.userId == _me).toList();
+        return mine.isEmpty ? null : mine.last;
+      });
+
+  @override
+  Future<void> submitWorkerApplication({
+    required String fullName,
+    required String city,
+    String? experience,
+  }) =>
+      _guard(() async {
+        if (MockControls.demoRoles.contains(UserRole.porter)) {
+          throw Failures.validation('server', 'Вы уже работаете грузчиком.');
+        }
+        if (_workerApps.any((a) =>
+            a.userId == _me && a.status == WorkerApplicationStatus.pending)) {
+          throw Failures.validation('server', 'Заявка уже на рассмотрении.');
+        }
+        if (fullName.trim().length < 2) {
+          throw Failures.validation('fullName', 'Укажите имя и фамилию.');
+        }
+        if (city.trim().length < 2) {
+          throw Failures.validation('city', 'Укажите город.');
+        }
+        _workerApps.add(WorkerApplication(
+          id: 'wa-${_workerApps.length + 1}',
+          userId: _me,
+          fullName: fullName.trim(),
+          city: city.trim(),
+          experience: (experience?.trim().isEmpty ?? true) ? null : experience!.trim(),
+          status: WorkerApplicationStatus.pending,
+          phone: '+7 913 000-00-00',
+          createdAt: DateTime.now(),
+        ));
+      });
+
+  @override
+  Future<List<WorkerApplication>> pendingWorkerApplications() =>
+      _guard(() async => _workerApps
+          .where((a) => a.status == WorkerApplicationStatus.pending)
+          .toList());
+
+  @override
+  Future<void> reviewWorkerApplication({
+    required String id,
+    required bool approve,
+    String? reason,
+  }) =>
+      _guard(() async {
+        final i = _workerApps.indexWhere((a) => a.id == id);
+        if (i < 0 || _workerApps[i].status != WorkerApplicationStatus.pending) {
+          throw Failures.validation('server', 'Заявка уже рассмотрена.');
+        }
+        final a = _workerApps[i];
+        _workerApps[i] = WorkerApplication(
+          id: a.id,
+          userId: a.userId,
+          fullName: a.fullName,
+          city: a.city,
+          experience: a.experience,
+          phone: a.phone,
+          createdAt: a.createdAt,
+          status: approve
+              ? WorkerApplicationStatus.approved
+              : WorkerApplicationStatus.rejected,
+          rejectReason: approve ? null : reason,
+        );
+        if (approve && a.userId == _me) {
+          MockControls.setDemoRoles({...MockControls.demoRoles, UserRole.porter});
+        }
+      });
+
+  @override
+  Future<void> setOrderPayment({
+    required String orderId,
+    required PaymentStatus status,
+    num? amount,
+    PaymentMethod? method,
+  }) =>
+      _guard(() async {
+        final o = _orders[orderId];
+        if (o == null) throw Failures.orderNotFound();
+        _orders[orderId] = o.withPayment(
+          status: status,
+          method: method,
+          amount: amount ?? _priceOf(o),
+        );
+        _emitStatus(orderId);
+        _emitFeed();
+      });
+
+  /// Цена для демо-оплаты: из подсказки тарифа или по калькулятору.
+  num _priceOf(Order o) {
+    final digits = RegExp(r'\d+').firstMatch(o.clientTariffHint ?? '');
+    return digits == null ? 2000 : int.parse(digits.group(0)!);
+  }
+
+  /// Демо: ничего не хранится на сервере — просто «выходим».
+  @override
+  Future<void> deleteMyAccount() => _guard(() async {});
+
+  @override
+  Future<void> updateMyCity(String city) => _guard(() async {
+        MockControls.demoCity = city;
+        // Перевыпустить профиль подписчикам watchCurrentUser.
+        MockControls.setDemoRoles(MockControls.demoRoles);
+      });
+
+  @override
+  Future<void> refreshCurrentUser() async {}
 
   Future<void> dispose() async {
     await _feedCtrl.close();
